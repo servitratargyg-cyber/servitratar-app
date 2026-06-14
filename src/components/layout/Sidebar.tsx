@@ -34,7 +34,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     { label: 'Empleados',     href: '/empleados',    icon: <UserCog className="h-5 w-5" />,        show: perms.can.empleados },
     { label: 'Nómina',        href: '/nomina',       icon: <DollarSign className="h-5 w-5" />,     show: perms.can.nomina },
     { label: 'Reportes',      href: '/reportes',     icon: <BarChart3 className="h-5 w-5" />,      show: perms.can.reportes },
-    { label: 'Configuración', href: '/config',       icon: <Settings className="h-5 w-5" />,       show: perms.can.configuracion },
+    { label: 'Configuración', href: '/configuracion', icon: <Settings className="h-5 w-5" />,       show: perms.can.configuracion },
   ];
 
   return (
@@ -46,10 +46,15 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     >
       {/* Logo / header */}
       <div className="flex items-center justify-between px-4 py-4 border-b border-white/10 min-h-[60px]">
-        {!collapsed && (
-          <div className="flex flex-col leading-tight">
-            <span className="text-sm font-bold tracking-wide text-[#e8734a]">SERVITRATAR</span>
-            <span className="text-[10px] text-white/50">G&G S.A.S.</span>
+        {collapsed ? (
+          <img src="/logo.png" alt="Servitratar" className="h-8 w-8 object-contain mx-auto" />
+        ) : (
+          <div className="flex items-center gap-2.5">
+            <img src="/logo.png" alt="Servitratar" className="h-9 w-9 object-contain flex-shrink-0" />
+            <div className="flex flex-col leading-tight">
+              <span className="text-sm font-bold tracking-wide text-[#e8734a]">SERVITRATAR</span>
+              <span className="text-[10px] text-white/50">G&G S.A.S.</span>
+            </div>
           </div>
         )}
         <button

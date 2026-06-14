@@ -29,6 +29,7 @@ const InventarioPage   = lazy(() => import('../pages/inventario/InventarioPage')
 const EmpleadosPage    = lazy(() => import('../pages/empleados/EmpleadosPage'));
 const NominaPage       = lazy(() => import('../pages/empleados/NominaPage'));
 const ReportesPage     = lazy(() => import('../pages/reportes/ReportesPage'));
+const ConfigPage       = lazy(() => import('../pages/config/ConfigPage'));
 
 function Wrap({ children }: { children: ReactNode }) {
   return <Suspense fallback={<PageLoader />}>{children}</Suspense>;
@@ -52,6 +53,7 @@ function GuardFacturacion()  { const { can } = usePermissions(); return <RoleGua
 function GuardInventario()   { const { can } = usePermissions(); return <RoleGuard allowed={can.inventario}   />; }
 function GuardNomina()       { const { can } = usePermissions(); return <RoleGuard allowed={can.nomina}       />; }
 function GuardCrearOrden()   { const { can } = usePermissions(); return <RoleGuard allowed={can.crearOrdenes} />; }
+function GuardConfig()       { const { can } = usePermissions(); return <RoleGuard allowed={can.configuracion} />; }
 
 export const router = createBrowserRouter([
   {
@@ -117,6 +119,14 @@ export const router = createBrowserRouter([
               { path: 'empleados', element: <Wrap><EmpleadosPage /></Wrap> },
               { path: 'nomina',    element: <Wrap><NominaPage /></Wrap> },
               { path: 'reportes',  element: <Wrap><ReportesPage /></Wrap> },
+            ],
+          },
+
+          // Configuración (solo admin)
+          {
+            element: <GuardConfig />,
+            children: [
+              { path: 'configuracion', element: <Wrap><ConfigPage /></Wrap> },
             ],
           },
         ],

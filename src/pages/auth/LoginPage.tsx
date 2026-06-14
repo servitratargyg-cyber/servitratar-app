@@ -1,7 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Flame } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -35,9 +34,7 @@ export default function LoginPage() {
       {/* Left panel — branding */}
       <div className="hidden lg:flex w-1/2 bg-[#1a1a2e] flex-col items-center justify-center p-12">
         <div className="flex flex-col items-center gap-6 max-w-xs text-center">
-          <div className="rounded-2xl bg-[#e8734a]/20 p-5">
-            <Flame className="h-16 w-16 text-[#e8734a]" />
-          </div>
+          <img src="/logo.png" alt="Servitratar" className="h-32 w-32 object-contain" />
           <div>
             <h1 className="text-3xl font-bold text-white tracking-tight">
               {EMPRESA.nombre}
@@ -62,7 +59,7 @@ export default function LoginPage() {
       <div className="flex-1 flex items-center justify-center p-8 bg-[#f0f4f8]">
         <div className="w-full max-w-sm">
           <div className="lg:hidden flex items-center gap-3 mb-8">
-            <Flame className="h-8 w-8 text-[#e8734a]" />
+            <img src="/logo.png" alt="Servitratar" className="h-10 w-10 object-contain" />
             <span className="text-xl font-bold text-[#1a1a2e]">SERVITRATAR</span>
           </div>
 
