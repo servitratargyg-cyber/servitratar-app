@@ -5,6 +5,14 @@ export async function getClientes() {
   const { data, error } = await supabase
     .from('clientes')
     .select('*')
+    .order('nombre');
+  return { data: (data ?? []) as Cliente[], error };
+}
+
+export async function getClientesActivos() {
+  const { data, error } = await supabase
+    .from('clientes')
+    .select('*')
     .eq('estado', 'ACTIVO')
     .order('nombre');
   return { data: (data ?? []) as Cliente[], error };
@@ -41,4 +49,8 @@ export async function updateCliente(
     .select()
     .single();
   return { data: (data ?? null) as Cliente | null, error };
+}
+
+export async function toggleClienteEstado(id: string, estado: 'ACTIVO' | 'INACTIVO') {
+  return updateCliente(id, { estado });
 }

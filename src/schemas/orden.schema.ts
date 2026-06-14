@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const ordenItemFormSchema = z.object({
-  posicion:    z.number().int().min(1).max(5),
+  posicion:    z.number().int().min(1),
   cantidad:    z.number().nullable(),
   descripcion: z.string(),
   referencia:  z.string(),

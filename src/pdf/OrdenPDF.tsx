@@ -1,7 +1,8 @@
-import { Document, Page, View, Text, StyleSheet } from '@react-pdf/renderer';
+import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/renderer';
 import type { Orden, OrdenItem } from '../types/supabase.types';
 import { EMPRESA } from '../lib/constants';
 import { formatDate, formatCurrency } from '../lib/formatters';
+import logo from '../assets/logo.png';
 
 // Media carta: 140mm × 216mm → points (1 pt ≈ 0.353mm)
 const W = 396.85;
@@ -18,10 +19,12 @@ const C = {
 const s = StyleSheet.create({
   page:      { width: W, height: H, padding: 20, fontSize: 7, fontFamily: 'Helvetica', color: '#111827' },
   // header
-  header:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10, paddingBottom: 8, borderBottom: `1.5 solid ${C.dark}` },
-  empresa:   { gap: 1 },
-  empNombre: { fontSize: 9, fontFamily: 'Helvetica-Bold', color: C.dark },
-  empSub:    { fontSize: 6, color: C.gray },
+  header:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, paddingBottom: 8, borderBottom: `1.5 solid ${C.dark}` },
+  empresaRow:  { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  logo:        { width: 44, height: 44, objectFit: 'contain' },
+  empresa:     { gap: 1 },
+  empNombre:   { fontSize: 9, fontFamily: 'Helvetica-Bold', color: C.dark },
+  empSub:      { fontSize: 6, color: C.gray },
   badge:     { backgroundColor: C.dark, borderRadius: 4, paddingHorizontal: 8, paddingVertical: 4, alignItems: 'center' },
   badgeType: { fontSize: 6, color: C.accent, fontFamily: 'Helvetica-Bold', letterSpacing: 1 },
   badgeNum:  { fontSize: 14, fontFamily: 'Helvetica-Bold', color: 'white' },
@@ -78,11 +81,14 @@ export function OrdenPDF({ orden, items }: OrdenPDFProps) {
 
         {/* ── HEADER ────────────────────────────────── */}
         <View style={s.header}>
-          <View style={s.empresa}>
-            <Text style={s.empNombre}>{EMPRESA.nombre}</Text>
-            <Text style={s.empSub}>{EMPRESA.direccion}</Text>
-            <Text style={s.empSub}>Tel: {EMPRESA.tel1}  /  {EMPRESA.tel2}</Text>
-            <Text style={s.empSub}>NIT: {EMPRESA.nit}</Text>
+          <View style={s.empresaRow}>
+            <Image src={logo} style={s.logo} />
+            <View style={s.empresa}>
+              <Text style={s.empNombre}>{EMPRESA.nombre}</Text>
+              <Text style={s.empSub}>{EMPRESA.direccion}</Text>
+              <Text style={s.empSub}>Tel: {EMPRESA.tel1}  /  {EMPRESA.tel2}</Text>
+              <Text style={s.empSub}>NIT: {EMPRESA.nit}</Text>
+            </View>
           </View>
           <View style={s.badge}>
             <Text style={s.badgeType}>{esCot ? 'COTIZACIÓN' : orden.tipo_doc}</Text>

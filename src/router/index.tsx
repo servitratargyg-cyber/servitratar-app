@@ -12,14 +12,17 @@ import { PageLoader } from '../components/shared/LoadingSpinner';
 const LoginPage = lazy(() => import('../pages/auth/LoginPage'));
 
 // Pages — core
-const DashboardPage    = lazy(() => import('../pages/dashboard/DashboardPage'));
-const OrdenesPage      = lazy(() => import('../pages/ordenes/OrdenesPage'));
-const NuevaOrdenPage   = lazy(() => import('../pages/ordenes/NuevaOrdenPage'));
-const OrdenDetallePage = lazy(() => import('../pages/ordenes/OrdenDetallePage'));
-const ClientesPage     = lazy(() => import('../pages/clientes/ClientesPage'));
+const DashboardPage           = lazy(() => import('../pages/dashboard/DashboardPage'));
+const OrdenesPage             = lazy(() => import('../pages/ordenes/OrdenesPage'));
+const NuevaOrdenPage          = lazy(() => import('../pages/ordenes/NuevaOrdenPage'));
+const OrdenDetallePage        = lazy(() => import('../pages/ordenes/OrdenDetallePage'));
+const ClientesPage            = lazy(() => import('../pages/clientes/ClientesPage'));
+const ClienteDetallePage      = lazy(() => import('../pages/clientes/ClienteDetallePage'));
 
 // Pages — gated by role
-const CotizacionesPage = lazy(() => import('../pages/cotizaciones/CotizacionesPage'));
+const CotizacionesPage        = lazy(() => import('../pages/cotizaciones/CotizacionesPage'));
+const NuevaCotizacionPage     = lazy(() => import('../pages/cotizaciones/NuevaCotizacionPage'));
+const CotizacionDetallePage   = lazy(() => import('../pages/cotizaciones/CotizacionDetallePage'));
 const FacturacionPage  = lazy(() => import('../pages/facturacion/FacturacionPage'));
 const CarteraPage      = lazy(() => import('../pages/cartera/CarteraPage'));
 const InventarioPage   = lazy(() => import('../pages/inventario/InventarioPage'));
@@ -76,14 +79,17 @@ export const router = createBrowserRouter([
             ],
           },
 
-          // Clientes (todos)
-          { path: 'clientes', element: <Wrap><ClientesPage /></Wrap> },
+          // Clientes (todos los roles)
+          { path: 'clientes',      element: <Wrap><ClientesPage /></Wrap> },
+          { path: 'clientes/:id',  element: <Wrap><ClienteDetallePage /></Wrap> },
 
           // Cotizaciones (admin + operario)
           {
             element: <GuardCotizaciones />,
             children: [
-              { path: 'cotizaciones', element: <Wrap><CotizacionesPage /></Wrap> },
+              { path: 'cotizaciones',        element: <Wrap><CotizacionesPage /></Wrap>      },
+              { path: 'cotizaciones/nueva',  element: <Wrap><NuevaCotizacionPage /></Wrap>   },
+              { path: 'cotizaciones/:id',    element: <Wrap><CotizacionDetallePage /></Wrap> },
             ],
           },
 

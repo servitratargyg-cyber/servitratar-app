@@ -7,6 +7,8 @@ export const EMPRESA = {
   prefijo:   'TT',
 } as const;
 
+export const VALOR_MINIMO_ORDEN = 5_000;
+
 export const TASAS = {
   IVA:         0.19,
   RETE_FUENTE: 0.04,

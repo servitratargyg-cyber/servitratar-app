@@ -2,16 +2,14 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { toast } from 'sonner';
 import { pdf } from '@react-pdf/renderer';
-import { useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2 } from 'lucide-react';
-import { ordenFormSchema, type OrdenFormData } from '../../schemas/orden.schema';
-import { createOrden, uploadOrdenPDF, updateOrdenPdfUrl } from '../../services/ordenes.service';
+import { cotizacionFormSchema, type CotizacionFormData } from '../../schemas/cotizacion.schema';
+import { useCreateCotizacion } from '../../hooks/useCotizaciones';
 import { useAuth } from '../../hooks/useAuth';
-import { TASAS, VALOR_MINIMO_ORDEN } from '../../lib/constants';
+import { TASAS } from '../../lib/constants';
 import { formatCurrency } from '../../lib/formatters';
-import { OrdenPDF } from '../../pdf/OrdenPDF';
+import { CotizacionPDF } from '../../pdf/CotizacionPDF';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { ClienteCombobox } from '../../components/shared/ClienteCombobox';
 import { Button } from '../../components/ui/button';
@@ -22,7 +20,7 @@ import { Textarea } from '../../components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import type { Cliente } from '../../types/supabase.types';
 
-const EMPTY_ITEM = (posicion: number): OrdenFormData['items'][number] => ({
+const EMPTY_ITEM = (posicion: number): CotizacionFormData['items'][number] => ({
   posicion,
   cantidad:    null,
   descripcion: '',
@@ -32,10 +30,16 @@ const EMPTY_ITEM = (posicion: number): OrdenFormData['items'][number] => ({
   subtotal:    0,
 });
 
-export default function NuevaOrdenPage() {
+function getDefaultFechaValidez(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 30);
+  return d.toISOString().split('T')[0];
+}
+
+export default function NuevaCotizacionPage() {
   const navigate    = useNavigate();
   const { user }    = useAuth();
-  const queryClient = useQueryClient();
+  const create      = useCreateCotizacion(user?.id ?? null);
 
   const {
     register,
@@ -43,109 +47,87 @@ export default function NuevaOrdenPage() {
     handleSubmit,
     setValue,
     formState: { errors, isSubmitting },
-  } = useForm<OrdenFormData>({
-    resolver: zodResolver(ordenFormSchema),
+  } = useForm<CotizacionFormData>({
+    resolver: zodResolver(cotizacionFormSchema),
     defaultValues: {
       cliente_id:     '',
       cliente_nombre: '',
-      tipo_doc:       'O.S.',
       modo_cobro:     'KG',
-      kg_total:       0,
-      tarifa_kg:      0,
-      valor:          0,
+      fecha_validez:  getDefaultFechaValidez(),
+      incluir_iva:    false,
+      subtotal:       0,
       iva:            0,
-      cant_total:     0,
-      observacion:    '',
+      total:          0,
+      notas:          '',
       items:          [1, 2, 3, 4, 5].map(EMPTY_ITEM),
     },
   });
 
   const { fields, append, remove } = useFieldArray({ control, name: 'items' });
 
-  // All reactive values via single useWatch
-  const [clienteId, modo, tipodoc, kgTotal, tarifaKg, itemsVal, valor, iva] = useWatch({
+  const [clienteId, modo, itemsVal, incluirIva, subtotal, iva] = useWatch({
     control,
-    name: ['cliente_id', 'modo_cobro', 'tipo_doc', 'kg_total', 'tarifa_kg', 'items', 'valor', 'iva'],
+    name: ['cliente_id', 'modo_cobro', 'items', 'incluir_iva', 'subtotal', 'iva'],
   });
 
   const esUnidad = modo === 'UNIDAD';
-  const esFE     = tipodoc === 'F.E.';
 
-  // Recalculate totals whenever mode or inputs change
   useEffect(() => {
-    let subtotal = 0;
-
-    if (esUnidad) {
-      const items = itemsVal ?? [];
-      items.forEach((item, i) => {
-        const cant   = item.cantidad ?? 0;
-        const tarifa = item.tarifa_unit ?? 0;
-        const sub    = cant * tarifa;
-        setValue(`items.${i}.subtotal`, sub);
-        subtotal += sub;
-      });
-    } else {
-      subtotal = (kgTotal ?? 0) * (tarifaKg ?? 0);
-    }
-
-    // Apply minimum only when there's an actual calculated value
-    if (subtotal > 0 && subtotal < VALOR_MINIMO_ORDEN) {
-      subtotal = VALOR_MINIMO_ORDEN;
-    }
-
-    const ivaCalc = esFE ? subtotal * TASAS.IVA : 0;
-    setValue('valor', subtotal);
-    setValue('iva',   ivaCalc);
-  }, [esUnidad, esFE, kgTotal, tarifaKg, itemsVal, setValue]);
+    const items = (itemsVal as CotizacionFormData['items']) ?? [];
+    let sub = 0;
+    items.forEach((item, i) => {
+      const cant   = item.cantidad ?? 0;
+      const tarifa = item.tarifa_unit ?? 0;
+      const s      = cant * tarifa;
+      setValue(`items.${i}.subtotal`, s);
+      sub += s;
+    });
+    const ivaCalc = incluirIva ? sub * TASAS.IVA : 0;
+    setValue('subtotal', sub);
+    setValue('iva',      ivaCalc);
+    setValue('total',    sub + ivaCalc);
+  }, [itemsVal, incluirIva, setValue]);
 
   function handleClienteSelect(cliente: Cliente) {
     setValue('cliente_id',     cliente.id);
     setValue('cliente_nombre', cliente.nombre);
     setValue('modo_cobro',     cliente.modo_cobro);
-    setValue('tipo_doc',       cliente.tipo_doc);
-    setValue('tarifa_kg',      cliente.tarifa_defecto);
   }
 
-  async function onSubmit(data: OrdenFormData) {
-    const { data: orden, error } = await createOrden(data, user?.id ?? null);
+  async function onSubmit(data: CotizacionFormData) {
+    const result = await create.mutateAsync(data);
+    if (!result?.data) return;
 
-    if (error || !orden) {
-      toast.error(`Error al crear la orden: ${error?.message ?? 'desconocido'}`);
-      return;
-    }
-
-    toast.success(`Orden TT${orden.no_doc} creada`);
-
-    // Generate and upload PDF (non-blocking — order already saved)
+    // Generate PDF non-blocking
     try {
-      const blob   = await pdf(<OrdenPDF orden={orden} items={orden.items} />).toBlob();
-      const pdfUrl = await uploadOrdenPDF(blob, orden.no_doc);
-      if (pdfUrl) await updateOrdenPdfUrl(orden.id, pdfUrl);
-    } catch {
-      // Non-critical: order created regardless
-    }
+      const blob = await pdf(
+        <CotizacionPDF cotizacion={result.data} items={result.data.items} />
+      ).toBlob();
+      // Future: upload to storage if needed
+      void blob;
+    } catch { /* non-critical */ }
 
-    queryClient.invalidateQueries({ queryKey: ['ordenes'] });
-    navigate(`/ordenes/${orden.id}`);
+    navigate(`/cotizaciones/${result.data.id}`);
   }
 
-  const displayValor    = (valor as number) ?? 0;
-  const displayIva      = (iva   as number) ?? 0;
-  const totalFinal      = displayValor + displayIva;
-  const aplicaMinimo    = displayValor > 0 && displayValor === VALOR_MINIMO_ORDEN;
+  const displaySub = (subtotal as number) ?? 0;
+  const displayIva = (iva     as number) ?? 0;
 
   return (
     <div className="max-w-4xl">
       <PageHeader
-        title="Nueva Orden de Servicio"
-        breadcrumbs={[{ label: 'Órdenes', href: '/ordenes' }, { label: 'Nueva Orden' }]}
+        title="Nueva Cotización"
+        breadcrumbs={[
+          { label: 'Cotizaciones', href: '/cotizaciones' },
+          { label: 'Nueva Cotización' },
+        ]}
       />
 
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
 
-        {/* ── CLIENTE + TIPO DOC ──────────────────── */}
+        {/* ── CLIENTE ─────────────────────────────── */}
         <Card>
-          <CardHeader><CardTitle>Datos del pedido</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Datos de la cotización</CardTitle></CardHeader>
           <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 
             <div className="sm:col-span-2 flex flex-col gap-1.5">
@@ -159,19 +141,22 @@ export default function NuevaOrdenPage() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label>Tipo de documento</Label>
-              <Select {...register('tipo_doc')}>
-                <option value="O.S.">O.S. — Orden de Servicio</option>
-                <option value="F.E.">F.E. — Factura Electrónica</option>
-              </Select>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
               <Label>Modo de cobro</Label>
               <Select {...register('modo_cobro')}>
                 <option value="KG">Por KG</option>
                 <option value="UNIDAD">Por Unidad</option>
               </Select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label>Válida hasta *</Label>
+              <Input
+                type="date"
+                {...register('fecha_validez')}
+              />
+              {errors.fecha_validez && (
+                <p className="text-xs text-red-500">{errors.fecha_validez.message}</p>
+              )}
             </div>
 
           </CardContent>
@@ -181,7 +166,7 @@ export default function NuevaOrdenPage() {
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>Ítems</CardTitle>
+              <CardTitle>Ítems cotizados</CardTitle>
               <Button
                 type="button"
                 variant="outline"
@@ -202,18 +187,16 @@ export default function NuevaOrdenPage() {
                     <th className="pb-2 text-left text-xs font-medium text-gray-500 pl-2">Descripción</th>
                     <th className="pb-2 text-left text-xs font-medium text-gray-500 w-32 pl-2">Referencia</th>
                     <th className="pb-2 text-left text-xs font-medium text-gray-500 w-28 pl-2">Dureza</th>
-                    {esUnidad && (
-                      <>
-                        <th className="pb-2 text-right text-xs font-medium text-gray-500 w-32 pl-2">Tarifa Unit.</th>
-                        <th className="pb-2 text-right text-xs font-medium text-gray-500 w-28 pl-2">Subtotal</th>
-                      </>
-                    )}
+                    <th className="pb-2 text-right text-xs font-medium text-gray-500 w-32 pl-2">
+                      Tarifa ({esUnidad ? 'und' : 'kg'})
+                    </th>
+                    <th className="pb-2 text-right text-xs font-medium text-gray-500 w-28 pl-2">Subtotal</th>
                     <th className="pb-2 w-8" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {fields.map((field, i) => {
-                    const items   = (itemsVal as OrdenFormData['items']) ?? [];
+                    const items   = (itemsVal as CotizacionFormData['items']) ?? [];
                     const itemRow = items[i];
                     const sub     = (itemRow?.cantidad ?? 0) * (itemRow?.tarifa_unit ?? 0);
 
@@ -233,7 +216,7 @@ export default function NuevaOrdenPage() {
                         </td>
                         <td className="py-1.5 pl-2">
                           <Input
-                            placeholder="Descripción del material..."
+                            placeholder="Descripción del servicio..."
                             {...register(`items.${i}.descripcion`)}
                           />
                         </td>
@@ -243,23 +226,19 @@ export default function NuevaOrdenPage() {
                         <td className="py-1.5 pl-2">
                           <Input placeholder="HRC, HB..." {...register(`items.${i}.dureza`)} />
                         </td>
-                        {esUnidad && (
-                          <>
-                            <td className="py-1.5 pl-2">
-                              <Input
-                                type="number"
-                                step="100"
-                                min="0"
-                                placeholder="0"
-                                className="text-right"
-                                {...register(`items.${i}.tarifa_unit`, { valueAsNumber: true })}
-                              />
-                            </td>
-                            <td className="py-1.5 pl-2 text-right tabular-nums text-gray-700 font-medium text-sm">
-                              {formatCurrency(esUnidad ? sub : 0)}
-                            </td>
-                          </>
-                        )}
+                        <td className="py-1.5 pl-2">
+                          <Input
+                            type="number"
+                            step="100"
+                            min="0"
+                            placeholder="0"
+                            className="text-right"
+                            {...register(`items.${i}.tarifa_unit`, { valueAsNumber: true })}
+                          />
+                        </td>
+                        <td className="py-1.5 pl-2 text-right tabular-nums text-gray-700 font-medium text-sm">
+                          {formatCurrency(sub)}
+                        </td>
                         <td className="py-1.5 pl-1">
                           {fields.length > 1 && (
                             <button
@@ -283,55 +262,34 @@ export default function NuevaOrdenPage() {
 
         {/* ── TOTALES ────────────────────────────── */}
         <Card>
-          <CardHeader><CardTitle>Liquidación</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Totales</CardTitle></CardHeader>
           <CardContent>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
 
-              {!esUnidad && (
-                <div className="flex gap-4">
-                  <div className="flex flex-col gap-1.5 w-36">
-                    <Label>Total KG</Label>
-                    <Input
-                      type="number"
-                      step="0.001"
-                      min="0"
-                      placeholder="0.000"
-                      {...register('kg_total', { valueAsNumber: true })}
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1.5 w-40">
-                    <Label>Tarifa por KG</Label>
-                    <Input
-                      type="number"
-                      step="100"
-                      min="0"
-                      placeholder="0"
-                      {...register('tarifa_kg', { valueAsNumber: true })}
-                    />
-                  </div>
-                </div>
-              )}
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-gray-300 text-[#e8734a]"
+                  {...register('incluir_iva')}
+                />
+                <span className="text-sm text-gray-700">Incluir IVA (19%)</span>
+              </label>
 
               <div className="flex flex-col gap-2 min-w-[220px]">
-                {aplicaMinimo && (
-                  <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-1">
-                    Valor mínimo de servicio aplicado: {formatCurrency(VALOR_MINIMO_ORDEN)}
-                  </p>
-                )}
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Subtotal:</span>
-                  <span className="font-medium tabular-nums">{formatCurrency(displayValor)}</span>
+                  <span className="font-medium tabular-nums">{formatCurrency(displaySub)}</span>
                 </div>
-                {esFE && (
+                {(incluirIva as boolean) && (
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">IVA (19%):</span>
                     <span className="font-medium tabular-nums">{formatCurrency(displayIva)}</span>
                   </div>
                 )}
                 <div className="flex justify-between border-t border-gray-200 pt-2">
-                  <span className="font-semibold text-gray-800">Total a pagar:</span>
+                  <span className="font-semibold text-gray-800">Total cotizado:</span>
                   <span className="font-bold text-lg text-[#e8734a] tabular-nums">
-                    {formatCurrency(totalFinal)}
+                    {formatCurrency(displaySub + displayIva)}
                   </span>
                 </div>
               </div>
@@ -339,25 +297,30 @@ export default function NuevaOrdenPage() {
           </CardContent>
         </Card>
 
-        {/* ── OBSERVACIONES ──────────────────────── */}
+        {/* ── NOTAS ──────────────────────────────── */}
         <Card>
-          <CardHeader><CardTitle>Observaciones</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Notas y condiciones</CardTitle></CardHeader>
           <CardContent>
             <Textarea
-              placeholder="Instrucciones especiales, condiciones de entrega..."
+              placeholder="Condiciones de pago, tiempos de entrega, observaciones..."
               rows={3}
-              {...register('observacion')}
+              {...register('notas')}
             />
           </CardContent>
         </Card>
 
         {/* ── ACCIONES ───────────────────────────── */}
         <div className="flex justify-end gap-3 pb-6">
-          <Button type="button" variant="outline" onClick={() => navigate('/ordenes')} disabled={isSubmitting}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => navigate('/cotizaciones')}
+            disabled={isSubmitting}
+          >
             Cancelar
           </Button>
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'Guardando...' : 'Crear Orden'}
+          <Button type="submit" disabled={isSubmitting || create.isPending}>
+            {isSubmitting || create.isPending ? 'Guardando...' : 'Crear Cotización'}
           </Button>
         </div>
 
