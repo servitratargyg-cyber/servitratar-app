@@ -127,6 +127,26 @@ Perfil para el área contable. Acceso a:
 - Reportes completos
 - No puede modificar clientes, órdenes ni configuración
 
+### Tabla de permisos por módulo
+
+| Módulo / Acción | Administrador | Operario | Contador |
+|-----------------|:---:|:---:|:---:|
+| **Dashboard** | ✅ | ✅ | ✅ |
+| **Clientes** — ver | ✅ | ✅ | ✅ |
+| **Clientes** — crear / editar | ✅ | ✅ | ❌ |
+| **Órdenes** — ver | ✅ | ✅ | ✅ |
+| **Órdenes** — crear / editar | ✅ | ✅ | ❌ |
+| **Órdenes** — anular | ✅ | ❌ | ❌ |
+| **Cotizaciones** — ver / crear | ✅ | ✅ | ❌ |
+| **Cotizaciones** — aprobar / rechazar | ✅ | ✅ | ❌ |
+| **Facturación** — ver / registrar FE | ✅ | ❌ | ✅ |
+| **Cartera** — ver / registrar cobro | ✅ | ❌ | ✅ |
+| **Empleados** — ver / gestionar | ✅ | ❌ | ✅ |
+| **Nómina** — liquidar / comprobantes | ✅ | ❌ | ✅ |
+| **Inventario** — ver / movimientos | ✅ | ✅ | ❌ |
+| **Reportes** — ver / exportar CSV | ✅ | ❌ | ✅ |
+| **Configuración** — empresa / usuarios | ✅ | ❌ | ❌ |
+
 ---
 
 ## Cómo crear usuarios
