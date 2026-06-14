@@ -2,7 +2,8 @@ import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/render
 import type { Cotizacion, CotizacionItem } from '../types/supabase.types';
 import { getEmpresaConfig } from '../services/config.service';
 import { formatDate, formatCurrency } from '../lib/formatters';
-import logo from '../assets/logo.png';
+
+const LOGO_URL = `${window.location.origin}/logo.png`;
 
 const W = 396.85;
 const H = 612.28;
@@ -65,7 +66,7 @@ export function CotizacionPDF({ cotizacion, items }: CotizacionPDFProps) {
         {/* ── HEADER ─────────────────────────────── */}
         <View style={s.header}>
           <View style={s.empresaRow}>
-            <Image src={logo} style={s.logo} />
+            <Image src={LOGO_URL} style={s.logo} />
             <View style={s.empresa}>
               <Text style={s.empNombre}>{empresa.nombre}</Text>
               <Text style={s.empSub}>{empresa.direccion}</Text>

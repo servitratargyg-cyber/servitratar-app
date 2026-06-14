@@ -162,10 +162,11 @@ export async function updateOrdenPdfUrl(id: string, pdf_url: string) {
 
 export async function uploadOrdenPDF(blob: Blob, noDoc: number): Promise<string | null> {
   try {
+    const { prefijo } = (await import('./config.service')).getEmpresaConfig();
     const now   = new Date();
     const year  = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
-    const path  = `ordenes/${year}/${month}/TT${noDoc}.pdf`;
+    const path  = `ordenes/${year}/${month}/${prefijo}${noDoc}.pdf`;
 
     const { error } = await supabase.storage
       .from('documentos')

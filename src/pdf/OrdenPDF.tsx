@@ -2,7 +2,8 @@ import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/render
 import type { Orden, OrdenItem } from '../types/supabase.types';
 import { getEmpresaConfig } from '../services/config.service';
 import { formatDate, formatCurrency } from '../lib/formatters';
-import logo from '../assets/logo.png';
+
+const LOGO_URL = `${window.location.origin}/logo.png`;
 
 // Media carta: 140mm × 216mm → points (1 pt ≈ 0.353mm)
 const W = 396.85;
@@ -83,7 +84,7 @@ export function OrdenPDF({ orden, items }: OrdenPDFProps) {
         {/* ── HEADER ────────────────────────────────── */}
         <View style={s.header}>
           <View style={s.empresaRow}>
-            <Image src={logo} style={s.logo} />
+            <Image src={LOGO_URL} style={s.logo} />
             <View style={s.empresa}>
               <Text style={s.empNombre}>{empresa.nombre}</Text>
               <Text style={s.empSub}>{empresa.direccion}</Text>

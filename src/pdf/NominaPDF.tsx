@@ -2,7 +2,8 @@ import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/render
 import type { NominaConEmpleado } from '../services/nomina.service';
 import { getEmpresaConfig } from '../services/config.service';
 import { formatCurrency, formatDate, getMesNombre } from '../lib/formatters';
-import logo from '../assets/logo.png';
+
+const LOGO_URL = `${window.location.origin}/logo.png`;
 
 // Carta: 612 × 792 pt
 const C = {
@@ -134,7 +135,7 @@ export function NominaPDF({ nomina }: NominaPDFProps) {
         {/* ── HEADER ─────────────────────────────────────── */}
         <View style={s.header}>
           <View style={s.empresaRow}>
-            <Image src={logo} style={s.logo} />
+            <Image src={LOGO_URL} style={s.logo} />
             <View style={s.empresa}>
               <Text style={s.empNombre}>{empresa.nombre}</Text>
               <Text style={s.empSub}>{empresa.direccion}</Text>
