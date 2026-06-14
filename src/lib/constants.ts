@@ -32,6 +32,15 @@ export const NOMINA_TASAS = {
 
 export const AUX_TRANSPORTE_2026 = 200_000;
 
+// Tasas ARL Colombia por clase de riesgo (Decreto 1607/2002)
+export const ARL_TASAS: Record<number, number> = {
+  1: 0.00522,  // Clase I  — Riesgo mínimo
+  2: 0.01044,  // Clase II — Riesgo bajo
+  3: 0.02436,  // Clase III — Riesgo medio
+  4: 0.04350,  // Clase IV — Riesgo alto
+  5: 0.06960,  // Clase V  — Riesgo máximo
+};
+
 export const ROLES = {
   ADMIN:    'admin',
   OPERARIO: 'operario',

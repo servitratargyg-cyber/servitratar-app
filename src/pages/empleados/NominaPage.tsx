@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { CheckCircle, Trash2, Plus, Download } from 'lucide-react';
@@ -11,7 +11,7 @@ import { useNominas, useCreateNomina, useMarcarNominaPagada, useDeleteNomina } f
 import { useEmpleados } from '../../hooks/useEmpleados';
 import type { NominaConEmpleado } from '../../services/nomina.service';
 import { formatCurrency, formatDate, getMesNombre } from '../../lib/formatters';
-import { AUX_TRANSPORTE_2026 } from '../../lib/constants';
+import { AUX_TRANSPORTE_2026, ARL_TASAS } from '../../lib/constants';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { ConfirmDialog } from '../../components/shared/ConfirmDialog';
 import { Dialog } from '../../components/ui/dialog';
@@ -39,6 +39,7 @@ function LiquidarModal({ open, onClose }: LiquidarModalProps) {
     register,
     handleSubmit,
     control,
+    setValue,
     formState: { errors },
   } = useForm<NominaFormData>({
     resolver:      zodResolver(nominaFormSchema),
@@ -65,6 +66,12 @@ function LiquidarModal({ open, onClose }: LiquidarModalProps) {
     () => empleados.find(e => e.id === empId) ?? null,
     [empleados, empId]
   );
+
+  useEffect(() => {
+    if (!empleado) return;
+    const tasa = ARL_TASAS[empleado.nivel_riesgo ?? 1];
+    setValue('arl_tasa', tasa);
+  }, [empleado, setValue]);
 
   const calculo = useMemo(() => {
     if (!empleado) return null;
@@ -148,9 +155,20 @@ function LiquidarModal({ open, onClose }: LiquidarModalProps) {
             <Input type="number" min="0" step="1000" placeholder="0" {...register('otras_deducciones', { valueAsNumber: true })} />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label>Tasa ARL (%)</Label>
-            <Input type="number" min="0" step="0.001" placeholder="0.00522" {...register('arl_tasa', { valueAsNumber: true })} />
-            <p className="text-[10px] text-gray-400">0.522% = Riesgo I · 1.044% = Riesgo II · 2.436% = Riesgo III</p>
+            <Label>Tasa ARL</Label>
+            <Input
+              type="number"
+              min="0"
+              step="0.00001"
+              {...register('arl_tasa', { valueAsNumber: true })}
+              readOnly={!!empleado?.nivel_riesgo}
+              className={empleado?.nivel_riesgo ? 'bg-gray-50 text-gray-500 cursor-default' : ''}
+            />
+            <p className="text-[10px] text-gray-400">
+              {empleado?.nivel_riesgo
+                ? `Clase ${empleado.nivel_riesgo} — tomada del perfil del empleado (${(ARL_TASAS[empleado.nivel_riesgo] * 100).toFixed(3)}%)`
+                : 'Selecciona un empleado para autocompletar según su nivel de riesgo ARL'}
+            </p>
           </div>
           <div className="flex flex-col gap-1.5">
             <Label>Observación</Label>
