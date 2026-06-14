@@ -9,7 +9,8 @@ import { Plus, Trash2 } from 'lucide-react';
 import { ordenFormSchema, type OrdenFormData } from '../../schemas/orden.schema';
 import { createOrden, uploadOrdenPDF, updateOrdenPdfUrl } from '../../services/ordenes.service';
 import { useAuth } from '../../hooks/useAuth';
-import { TASAS, VALOR_MINIMO_ORDEN } from '../../lib/constants';
+import { TASAS } from '../../lib/constants';
+import { getEmpresaConfig } from '../../services/config.service';
 import { formatCurrency } from '../../lib/formatters';
 import { OrdenPDF } from '../../pdf/OrdenPDF';
 import { PageHeader } from '../../components/shared/PageHeader';
@@ -36,6 +37,7 @@ export default function NuevaOrdenPage() {
   const navigate    = useNavigate();
   const { user }    = useAuth();
   const queryClient = useQueryClient();
+  const VALOR_MINIMO_ORDEN = getEmpresaConfig().valor_minimo_orden;
 
   const {
     register,

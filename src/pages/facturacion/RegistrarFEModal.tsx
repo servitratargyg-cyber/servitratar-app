@@ -6,7 +6,8 @@ import { calcularFactura } from '../../services/facturas.service';
 import { useOrdenesParaFacturar, useRegistrarFE } from '../../hooks/useFacturas';
 import { useCliente } from '../../hooks/useClientes';
 import type { Orden } from '../../types/supabase.types';
-import { EMPRESA, TASAS } from '../../lib/constants';
+import { TASAS } from '../../lib/constants';
+import { getEmpresaConfig } from '../../services/config.service';
 import { formatCurrency, formatDate } from '../../lib/formatters';
 import { Dialog } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
@@ -36,7 +37,8 @@ function ClienteRetSync({
 
 export function RegistrarFEModal({ open, onClose }: Props) {
   const { data: todasOrdenes = [] } = useOrdenesParaFacturar();
-  const registrar = useRegistrarFE();
+  const registrar  = useRegistrarFE();
+  const { prefijo } = getEmpresaConfig();
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -195,7 +197,7 @@ export function RegistrarFEModal({ open, onClose }: Props) {
                     />
                     <div className="flex-1 min-w-0">
                       <span className="font-mono font-semibold text-[#e8734a] text-sm">
-                        {EMPRESA.prefijo}{orden.no_doc}
+                        {prefijo}{orden.no_doc}
                       </span>
                       <span className="text-gray-500 text-sm ml-2">{orden.cliente_nombre}</span>
                     </div>

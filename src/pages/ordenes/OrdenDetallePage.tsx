@@ -10,7 +10,7 @@ import { useOrden, useUpdateOrdenEstado } from '../../hooks/useOrdenes';
 import { usePermissions } from '../../hooks/useAuth';
 import { updateOrdenPdfUrl, uploadOrdenPDF, type OrdenConItems } from '../../services/ordenes.service';
 import type { Orden } from '../../types/supabase.types';
-import { EMPRESA } from '../../lib/constants';
+import { getEmpresaConfig } from '../../services/config.service';
 import { formatDate, formatCurrency } from '../../lib/formatters';
 import { OrdenPDF } from '../../pdf/OrdenPDF';
 import { PageHeader } from '../../components/shared/PageHeader';
@@ -38,6 +38,7 @@ export default function OrdenDetallePage() {
 
   const { data, isLoading, error } = useOrden(id);
   const updateEstado = useUpdateOrdenEstado();
+  const { prefijo }  = getEmpresaConfig();
 
   const [showPagoModal,    setShowPagoModal]    = useState(false);
   const [showEntregaModal, setShowEntregaModal] = useState(false);
@@ -66,7 +67,7 @@ export default function OrdenDetallePage() {
   // Narrow: at this point data is OrdenConItems
   const orden: OrdenConItems = data;
 
-  const noDocLabel = `${EMPRESA.prefijo}${orden.no_doc}`;
+  const noDocLabel = `${prefijo}${orden.no_doc}`;
   const total      = orden.valor + orden.iva;
   const nextStates = NEXT_STATES[orden.estado] ?? [];
   const canAnular  = isAdmin && !['PAGADA', 'ANULADA'].includes(orden.estado);

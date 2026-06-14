@@ -5,7 +5,8 @@ import { useOrdenes } from '../../hooks/useOrdenes';
 import { usePermissions } from '../../hooks/useAuth';
 import type { OrdenesFilters } from '../../services/ordenes.service';
 import type { Orden } from '../../types/supabase.types';
-import { ESTADOS_ORDEN, EMPRESA } from '../../lib/constants';
+import { ESTADOS_ORDEN } from '../../lib/constants';
+import { getEmpresaConfig } from '../../services/config.service';
 import { formatDate, formatCurrency } from '../../lib/formatters';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { DataTable, type Column } from '../../components/shared/DataTable';
@@ -17,6 +18,7 @@ import { Input } from '../../components/ui/input';
 export default function OrdenesPage() {
   const navigate   = useNavigate();
   const { can }    = usePermissions();
+  const { prefijo } = getEmpresaConfig();
 
   const [filters, setFilters] = useState<OrdenesFilters>({});
   const [search,  setSearch]  = useState('');
@@ -40,7 +42,7 @@ export default function OrdenesPage() {
       accessor:  'no_doc',
       sortable:  true,
       className: 'font-mono font-semibold text-[#e8734a] whitespace-nowrap',
-      cell:      row => `${EMPRESA.prefijo}${row.no_doc}`,
+      cell:      row => `${prefijo}${row.no_doc}`,
     },
     {
       key:      'fecha',

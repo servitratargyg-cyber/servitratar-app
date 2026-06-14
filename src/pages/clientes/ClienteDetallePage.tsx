@@ -4,7 +4,7 @@ import { ArrowLeft, Pencil, ClipboardList } from 'lucide-react';
 import { useCliente } from '../../hooks/useClientes';
 import { useOrdenes } from '../../hooks/useOrdenes';
 import type { Orden } from '../../types/supabase.types';
-import { EMPRESA } from '../../lib/constants';
+import { getEmpresaConfig } from '../../services/config.service';
 import { formatDate, formatCurrency } from '../../lib/formatters';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { DataTable, type Column } from '../../components/shared/DataTable';
@@ -15,8 +15,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { ClienteForm } from './ClienteForm';
 
 export default function ClienteDetallePage() {
-  const { id }     = useParams<{ id: string }>();
-  const navigate   = useNavigate();
+  const { id }       = useParams<{ id: string }>();
+  const navigate     = useNavigate();
+  const { prefijo }  = getEmpresaConfig();
   const [editOpen, setEditOpen] = useState(false);
 
   const { data: cliente, isLoading: clienteLoading } = useCliente(id);
@@ -52,7 +53,7 @@ export default function ClienteDetallePage() {
       key:      'no_doc',
       header:   'No. TT',
       cell:     row => (
-        <span className="font-mono font-semibold text-[#e8734a]">{EMPRESA.prefijo}{row.no_doc}</span>
+        <span className="font-mono font-semibold text-[#e8734a]">{prefijo}{row.no_doc}</span>
       ),
     },
     { key: 'fecha',  header: 'Fecha',   cell: row => formatDate(row.fecha) },
@@ -217,7 +218,7 @@ export default function ClienteDetallePage() {
                 <span className="text-gray-500">Última orden</span>
                 <span className="font-medium">
                   {ordenes[0]
-                    ? `${EMPRESA.prefijo}${ordenes[0].no_doc} — ${formatDate(ordenes[0].fecha)}`
+                    ? `${prefijo}${ordenes[0].no_doc} — ${formatDate(ordenes[0].fecha)}`
                     : '—'}
                 </span>
               </div>

@@ -1,25 +1,31 @@
 import { supabase } from './supabase';
 import type { Profile } from '../types/supabase.types';
-import { EMPRESA } from '../lib/constants';
+import { EMPRESA, VALOR_MINIMO_ORDEN } from '../lib/constants';
 
 // ── Empresa (localStorage) ────────────────────────────────
 export interface EmpresaConfig {
-  nombre:    string;
-  nit:       string;
-  direccion: string;
-  tel1:      string;
-  tel2:      string;
-  prefijo:   string;
+  nombre:              string;
+  nit:                 string;
+  direccion:           string;
+  tel1:                string;
+  tel2:                string;
+  prefijo:             string;
+  valor_minimo_orden:  number;
 }
 
 const EMPRESA_KEY = 'servitratar_config_empresa';
 
+const EMPRESA_DEFAULTS: EmpresaConfig = {
+  ...EMPRESA,
+  valor_minimo_orden: VALOR_MINIMO_ORDEN,
+};
+
 export function getEmpresaConfig(): EmpresaConfig {
   try {
     const stored = localStorage.getItem(EMPRESA_KEY);
-    if (stored) return { ...EMPRESA, ...JSON.parse(stored) };
+    if (stored) return { ...EMPRESA_DEFAULTS, ...JSON.parse(stored) };
   } catch { /* ignore */ }
-  return { ...EMPRESA };
+  return { ...EMPRESA_DEFAULTS };
 }
 
 export function saveEmpresaConfig(config: EmpresaConfig): void {

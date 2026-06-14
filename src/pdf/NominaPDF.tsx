@@ -1,6 +1,6 @@
 import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/renderer';
 import type { NominaConEmpleado } from '../services/nomina.service';
-import { EMPRESA } from '../lib/constants';
+import { getEmpresaConfig } from '../services/config.service';
 import { formatCurrency, formatDate, getMesNombre } from '../lib/formatters';
 import logo from '../assets/logo.png';
 
@@ -121,9 +121,10 @@ function SecLine({ label, value }: { label: string; value: number }) {
 }
 
 export function NominaPDF({ nomina }: NominaPDFProps) {
-  const { empleado } = nomina;
-  const salarioProp  = Math.round((nomina.salario_base / 30) * nomina.dias_trabajados);
-  const periodoLabel = `${getMesNombre(nomina.periodo_mes).toUpperCase()} ${nomina.periodo_anio}`;
+  const empresa        = getEmpresaConfig();
+  const { empleado }   = nomina;
+  const salarioProp    = Math.round((nomina.salario_base / 30) * nomina.dias_trabajados);
+  const periodoLabel   = `${getMesNombre(nomina.periodo_mes).toUpperCase()} ${nomina.periodo_anio}`;
   const fechaImpresion = formatDate(new Date().toISOString());
 
   return (
@@ -135,10 +136,10 @@ export function NominaPDF({ nomina }: NominaPDFProps) {
           <View style={s.empresaRow}>
             <Image src={logo} style={s.logo} />
             <View style={s.empresa}>
-              <Text style={s.empNombre}>{EMPRESA.nombre}</Text>
-              <Text style={s.empSub}>{EMPRESA.direccion}</Text>
-              <Text style={s.empSub}>Tel: {EMPRESA.tel1}  /  {EMPRESA.tel2}</Text>
-              <Text style={s.empSub}>NIT: {EMPRESA.nit}</Text>
+              <Text style={s.empNombre}>{empresa.nombre}</Text>
+              <Text style={s.empSub}>{empresa.direccion}</Text>
+              <Text style={s.empSub}>Tel: {empresa.tel1}  /  {empresa.tel2}</Text>
+              <Text style={s.empSub}>NIT: {empresa.nit}</Text>
             </View>
           </View>
           <View style={s.badge}>
@@ -261,8 +262,8 @@ export function NominaPDF({ nomina }: NominaPDFProps) {
           </View>
           <View style={s.firmaBox}>
             <View style={s.firmaLine} />
-            <Text style={s.firmaNom}>{EMPRESA.nombre}</Text>
-            <Text style={s.firmaCC}>NIT: {EMPRESA.nit}</Text>
+            <Text style={s.firmaNom}>{empresa.nombre}</Text>
+            <Text style={s.firmaCC}>NIT: {empresa.nit}</Text>
             <Text style={s.firmaRol}>Empleador</Text>
           </View>
         </View>

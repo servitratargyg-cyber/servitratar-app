@@ -1,6 +1,6 @@
 import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/renderer';
 import type { Orden, OrdenItem } from '../types/supabase.types';
-import { EMPRESA } from '../lib/constants';
+import { getEmpresaConfig } from '../services/config.service';
 import { formatDate, formatCurrency } from '../lib/formatters';
 import logo from '../assets/logo.png';
 
@@ -69,11 +69,12 @@ interface OrdenPDFProps {
 }
 
 export function OrdenPDF({ orden, items }: OrdenPDFProps) {
+  const empresa  = getEmpresaConfig();
   const esUnidad = orden.modo_cobro === 'UNIDAD';
   const esFE     = orden.tipo_doc === 'F.E.';
   const cols     = esUnidad ? UN_COLS : KG_COLS;
   const total    = orden.valor + orden.iva;
-  const esCot    = false; // reuse for Cotizacion later
+  const esCot    = false;
 
   return (
     <Document>
@@ -84,15 +85,15 @@ export function OrdenPDF({ orden, items }: OrdenPDFProps) {
           <View style={s.empresaRow}>
             <Image src={logo} style={s.logo} />
             <View style={s.empresa}>
-              <Text style={s.empNombre}>{EMPRESA.nombre}</Text>
-              <Text style={s.empSub}>{EMPRESA.direccion}</Text>
-              <Text style={s.empSub}>Tel: {EMPRESA.tel1}  /  {EMPRESA.tel2}</Text>
-              <Text style={s.empSub}>NIT: {EMPRESA.nit}</Text>
+              <Text style={s.empNombre}>{empresa.nombre}</Text>
+              <Text style={s.empSub}>{empresa.direccion}</Text>
+              <Text style={s.empSub}>Tel: {empresa.tel1}  /  {empresa.tel2}</Text>
+              <Text style={s.empSub}>NIT: {empresa.nit}</Text>
             </View>
           </View>
           <View style={s.badge}>
             <Text style={s.badgeType}>{esCot ? 'COTIZACIÓN' : orden.tipo_doc}</Text>
-            <Text style={s.badgeNum}>{EMPRESA.prefijo}{orden.no_doc}</Text>
+            <Text style={s.badgeNum}>{empresa.prefijo}{orden.no_doc}</Text>
           </View>
         </View>
 

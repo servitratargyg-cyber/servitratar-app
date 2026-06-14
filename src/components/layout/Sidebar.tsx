@@ -15,11 +15,13 @@ interface NavItem {
 }
 
 interface SidebarProps {
-  collapsed: boolean;
-  onToggle:  () => void;
+  collapsed:     boolean;
+  onToggle:      () => void;
+  mobileOpen:    boolean;
+  onMobileClose: () => void;
 }
 
-export function Sidebar({ collapsed, onToggle }: SidebarProps) {
+export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: SidebarProps) {
   const { signOut, profile } = useAuth();
   const perms = usePermissions();
 
@@ -41,8 +43,14 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     <aside
       className={cn(
         'flex flex-col h-screen bg-[#1a1a2e] text-white transition-all duration-300 flex-shrink-0',
-        collapsed ? 'w-16' : 'w-60'
+        // Mobile: fixed overlay; Desktop: in-flow
+        'fixed inset-y-0 left-0 z-30 md:relative md:z-auto md:translate-x-0',
+        mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
+        // Width: always w-60 on mobile overlay, varies on desktop
+        'w-60',
+        collapsed ? 'md:w-16' : 'md:w-60',
       )}
+      aria-hidden={!mobileOpen && undefined}
     >
       {/* Logo / header */}
       <div className="flex items-center justify-between px-4 py-4 border-b border-white/10 min-h-[60px]">
@@ -76,6 +84,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               <NavLink
                 to={item.href}
                 end={item.href === '/'}
+                onClick={onMobileClose}
                 className={({ isActive }) => cn(
                   'flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors',
                   isActive

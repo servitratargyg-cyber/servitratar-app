@@ -17,12 +17,13 @@ import { Select } from '../../components/ui/select';
 
 // ── Schemas ───────────────────────────────────────────────
 const empresaSchema = z.object({
-  nombre:    z.string().min(1, 'Requerido'),
-  nit:       z.string().min(1, 'Requerido'),
-  direccion: z.string().min(1, 'Requerido'),
-  tel1:      z.string().min(1, 'Requerido'),
-  tel2:      z.string(),
-  prefijo:   z.string().min(1, 'Requerido'),
+  nombre:             z.string().min(1, 'Requerido'),
+  nit:                z.string().min(1, 'Requerido'),
+  direccion:          z.string().min(1, 'Requerido'),
+  tel1:               z.string().min(1, 'Requerido'),
+  tel2:               z.string(),
+  prefijo:            z.string().min(1, 'Requerido'),
+  valor_minimo_orden: z.number({ message: 'Requerido' }).min(0, 'Debe ser ≥ 0'),
 });
 type EmpresaFormData = z.infer<typeof empresaSchema>;
 
@@ -114,6 +115,28 @@ function TabEmpresa() {
               <div className="flex flex-col gap-1.5">
                 <Label>Teléfono 2</Label>
                 <Input placeholder="310 850 1926" {...register('tel2')} />
+              </div>
+
+              <div className="col-span-2 border-t border-gray-100 pt-3 mt-1">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Reglas de negocio</p>
+                <div className="flex flex-col gap-1.5 max-w-xs">
+                  <Label>Valor mínimo por Orden de Servicio *</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
+                    <Input
+                      type="number"
+                      min={0}
+                      step={500}
+                      className="pl-7"
+                      placeholder="5000"
+                      {...register('valor_minimo_orden', { valueAsNumber: true })}
+                    />
+                  </div>
+                  {errors.valor_minimo_orden && (
+                    <p className="text-xs text-red-500">{errors.valor_minimo_orden.message}</p>
+                  )}
+                  <p className="text-xs text-gray-400">Se aplica automáticamente al calcular el subtotal de cada ítem.</p>
+                </div>
               </div>
             </div>
 

@@ -1,6 +1,6 @@
 import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/renderer';
 import type { Cotizacion, CotizacionItem } from '../types/supabase.types';
-import { EMPRESA } from '../lib/constants';
+import { getEmpresaConfig } from '../services/config.service';
 import { formatDate, formatCurrency } from '../lib/formatters';
 import logo from '../assets/logo.png';
 
@@ -57,6 +57,7 @@ interface CotizacionPDFProps {
 }
 
 export function CotizacionPDF({ cotizacion, items }: CotizacionPDFProps) {
+  const empresa = getEmpresaConfig();
   return (
     <Document>
       <Page size={[W, H]} style={s.page}>
@@ -66,10 +67,10 @@ export function CotizacionPDF({ cotizacion, items }: CotizacionPDFProps) {
           <View style={s.empresaRow}>
             <Image src={logo} style={s.logo} />
             <View style={s.empresa}>
-              <Text style={s.empNombre}>{EMPRESA.nombre}</Text>
-              <Text style={s.empSub}>{EMPRESA.direccion}</Text>
-              <Text style={s.empSub}>Tel: {EMPRESA.tel1}  /  {EMPRESA.tel2}</Text>
-              <Text style={s.empSub}>NIT: {EMPRESA.nit}</Text>
+              <Text style={s.empNombre}>{empresa.nombre}</Text>
+              <Text style={s.empSub}>{empresa.direccion}</Text>
+              <Text style={s.empSub}>Tel: {empresa.tel1}  /  {empresa.tel2}</Text>
+              <Text style={s.empSub}>NIT: {empresa.nit}</Text>
             </View>
           </View>
           <View style={s.badge}>

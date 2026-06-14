@@ -1,7 +1,8 @@
 import { supabase } from './supabase';
 import type { Factura, Orden } from '../types/supabase.types';
 import type { RegistrarFEData, RegistrarCobroData } from '../schemas/factura.schema';
-import { TASAS, EMPRESA } from '../lib/constants';
+import { TASAS } from '../lib/constants';
+import { getEmpresaConfig } from './config.service';
 import { updateOrdenEstado } from './ordenes.service';
 
 export async function getFacturas() {
@@ -47,8 +48,9 @@ export async function registrarFE(
 ): Promise<{ data: Factura | null; error: Error | null }> {
   try {
     const calc     = calcularFactura(ordenes, formData.aplica_ret);
-    const remision = ordenes
-      .map(o => `${EMPRESA.prefijo}${o.no_doc}`)
+    const { prefijo } = getEmpresaConfig();
+    const remision    = ordenes
+      .map(o => `${prefijo}${o.no_doc}`)
       .join(' · ');
 
     // Use first orden's client info for the factura header
