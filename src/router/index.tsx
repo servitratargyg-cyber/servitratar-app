@@ -26,8 +26,9 @@ const CotizacionDetallePage   = lazy(() => import('../pages/cotizaciones/Cotizac
 const FacturacionPage  = lazy(() => import('../pages/facturacion/FacturacionPage'));
 const CarteraPage      = lazy(() => import('../pages/cartera/CarteraPage'));
 const InventarioPage   = lazy(() => import('../pages/inventario/InventarioPage'));
-const EmpleadosPage    = lazy(() => import('../pages/empleados/EmpleadosPage'));
-const NominaPage       = lazy(() => import('../pages/empleados/NominaPage'));
+const EmpleadosPage        = lazy(() => import('../pages/empleados/EmpleadosPage'));
+const EmpleadoDetallePage  = lazy(() => import('../pages/empleados/EmpleadoDetallePage'));
+const NominaPage           = lazy(() => import('../pages/empleados/NominaPage'));
 const ReportesPage     = lazy(() => import('../pages/reportes/ReportesPage'));
 const ConfigPage       = lazy(() => import('../pages/config/ConfigPage'));
 
@@ -116,8 +117,9 @@ export const router = createBrowserRouter([
           {
             element: <GuardNomina />,
             children: [
-              { path: 'empleados', element: <Wrap><EmpleadosPage /></Wrap> },
-              { path: 'nomina',    element: <Wrap><NominaPage /></Wrap> },
+              { path: 'empleados',     element: <Wrap><EmpleadosPage /></Wrap>       },
+              { path: 'empleados/:id', element: <Wrap><EmpleadoDetallePage /></Wrap> },
+              { path: 'nomina',        element: <Wrap><NominaPage /></Wrap>          },
               { path: 'reportes',  element: <Wrap><ReportesPage /></Wrap> },
             ],
           },

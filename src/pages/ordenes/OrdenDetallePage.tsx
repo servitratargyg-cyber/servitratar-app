@@ -7,6 +7,7 @@ import { Download, ArrowLeft, Truck, CreditCard, Ban, RefreshCw, Mail } from 'lu
 import { useOrden, useUpdateOrdenEstado } from '../../hooks/useOrdenes';
 import { usePermissions } from '../../hooks/useAuth';
 import { useCliente } from '../../hooks/useClientes';
+import { useContactos } from '../../hooks/useContactos';
 import { updateOrdenPdfUrl, uploadOrdenPDF, type OrdenConItems } from '../../services/ordenes.service';
 import type { Orden } from '../../types/supabase.types';
 import { getEmpresaConfig } from '../../services/config.service';
@@ -23,6 +24,7 @@ import { Input } from '../../components/ui/input';
 import { Select } from '../../components/ui/select';
 import { Textarea } from '../../components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { ContactoEmailDialog } from '../../components/shared/ContactoEmailDialog';
 
 // Valid estado transitions
 const NEXT_STATES: Partial<Record<Orden['estado'], Orden['estado'][]>> = {
@@ -40,12 +42,14 @@ export default function OrdenDetallePage() {
   const updateEstado              = useUpdateOrdenEstado();
   const { prefijo, nombre }       = getEmpresaConfig();
   const { data: cliente }         = useCliente(data?.cliente_id ?? undefined);
+  const { data: contactos = [] }  = useContactos(data?.cliente_id ?? undefined);
 
-  const [showPagoModal,    setShowPagoModal]    = useState(false);
-  const [showEntregaModal, setShowEntregaModal] = useState(false);
-  const [showAnularDialog, setShowAnularDialog] = useState(false);
-  const [showEstadoModal,  setShowEstadoModal]  = useState(false);
-  const [pdfLoading,       setPdfLoading]       = useState(false);
+  const [showPagoModal,       setShowPagoModal]       = useState(false);
+  const [showEntregaModal,    setShowEntregaModal]    = useState(false);
+  const [showAnularDialog,    setShowAnularDialog]    = useState(false);
+  const [showEstadoModal,     setShowEstadoModal]     = useState(false);
+  const [showContactoDialog,  setShowContactoDialog]  = useState(false);
+  const [pdfLoading,          setPdfLoading]          = useState(false);
 
   const [fechaPago,       setFechaPago]       = useState('');
   const [formaPago,       setFormaPago]       = useState('TRANSFERENCIA');
@@ -96,10 +100,19 @@ export default function OrdenDetallePage() {
     }
   }
 
-  async function handleEnviarEmail() {
+  function handleEnviarEmail() {
+    const tieneOpciones = contactos.some(c => c.email) || !!cliente?.email;
+    if (tieneOpciones) {
+      setShowContactoDialog(true);
+    } else {
+      enviarEmailA('');
+    }
+  }
+
+  async function enviarEmailA(email: string) {
     await handleDownloadPDF();
     abrirMailto({
-      to:      cliente?.email ?? '',
+      to:      email,
       subject: `Orden de servicio ${noDocLabel} — ${nombre}`,
       body:
         `Estimado/a ${orden.cliente_nombre},\n\n` +
@@ -397,6 +410,14 @@ export default function OrdenDetallePage() {
           </div>
         </div>
       </Dialog>
+
+      <ContactoEmailDialog
+        open={showContactoDialog}
+        onClose={() => setShowContactoDialog(false)}
+        contactos={contactos}
+        emailGeneral={cliente?.email}
+        onSelect={email => enviarEmailA(email)}
+      />
 
       <Dialog
         open={showAnularDialog}

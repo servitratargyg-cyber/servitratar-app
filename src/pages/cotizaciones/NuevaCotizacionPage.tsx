@@ -8,6 +8,7 @@ import { cotizacionFormSchema, type CotizacionFormData } from '../../schemas/cot
 import { useCreateCotizacion } from '../../hooks/useCotizaciones';
 import { useAuth } from '../../hooks/useAuth';
 import { TASAS } from '../../lib/constants';
+import { getEmpresaConfig } from '../../services/config.service';
 import { formatCurrency } from '../../lib/formatters';
 import { CotizacionPDF } from '../../pdf/CotizacionPDF';
 import { PageHeader } from '../../components/shared/PageHeader';
@@ -40,6 +41,7 @@ export default function NuevaCotizacionPage() {
   const navigate    = useNavigate();
   const { user }    = useAuth();
   const create      = useCreateCotizacion(user?.id ?? null);
+  const VALOR_MINIMO = getEmpresaConfig().valor_minimo_orden;
 
   const {
     register,
@@ -82,11 +84,12 @@ export default function NuevaCotizacionPage() {
       setValue(`items.${i}.subtotal`, s);
       sub += s;
     });
+    if (sub > 0 && sub < VALOR_MINIMO) sub = VALOR_MINIMO;
     const ivaCalc = incluirIva ? sub * TASAS.IVA : 0;
     setValue('subtotal', sub);
     setValue('iva',      ivaCalc);
     setValue('total',    sub + ivaCalc);
-  }, [itemsVal, incluirIva, setValue]);
+  }, [itemsVal, incluirIva, setValue, VALOR_MINIMO]);
 
   function handleClienteSelect(cliente: Cliente) {
     setValue('cliente_id',     cliente.id);
@@ -110,8 +113,9 @@ export default function NuevaCotizacionPage() {
     navigate(`/cotizaciones/${result.data.id}`);
   }
 
-  const displaySub = (subtotal as number) ?? 0;
-  const displayIva = (iva     as number) ?? 0;
+  const displaySub  = (subtotal as number) ?? 0;
+  const displayIva  = (iva     as number) ?? 0;
+  const aplicaMinimo = displaySub > 0 && displaySub === VALOR_MINIMO;
 
   return (
     <div className="max-w-4xl">
@@ -276,6 +280,11 @@ export default function NuevaCotizacionPage() {
               </label>
 
               <div className="flex flex-col gap-2 min-w-[220px]">
+                {aplicaMinimo && (
+                  <p className="text-xs text-amber-600 bg-amber-50 rounded px-2 py-1 text-right">
+                    Valor mínimo de servicio aplicado: {formatCurrency(VALOR_MINIMO)}
+                  </p>
+                )}
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Subtotal:</span>
                   <span className="font-medium tabular-nums">{formatCurrency(displaySub)}</span>

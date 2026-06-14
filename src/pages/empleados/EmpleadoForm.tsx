@@ -205,7 +205,7 @@ export function EmpleadoForm({ open, onClose, empleado }: EmpleadoFormProps) {
             <Label>Salario base *</Label>
             <Input
               type="number"
-              step="1000"
+              step="1"
               min="0"
               placeholder="1423500"
               {...register('salario_base', { valueAsNumber: true })}

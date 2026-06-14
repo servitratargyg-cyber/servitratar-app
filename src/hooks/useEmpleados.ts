@@ -3,10 +3,24 @@ import { toast } from 'sonner';
 import {
   getEmpleados,
   getEmpleadosActivos,
+  getEmpleadoById,
   createEmpleado,
   updateEmpleado,
 } from '../services/empleados.service';
 import type { Empleado } from '../types/supabase.types';
+
+export function useEmpleado(id: string | undefined) {
+  return useQuery({
+    queryKey: ['empleados', id],
+    queryFn:  async () => {
+      if (!id) return null;
+      const { data, error } = await getEmpleadoById(id);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id,
+  });
+}
 
 export function useEmpleados(soloActivos = false) {
   return useQuery({

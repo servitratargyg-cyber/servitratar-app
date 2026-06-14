@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Download, CheckCircle, XCircle, Send, Mail } from 'lucide-react';
 import { saveAs } from 'file-saver';
@@ -5,6 +6,7 @@ import { pdf } from '@react-pdf/renderer';
 import { useCotizacion, useUpdateCotizacionEstado, useConvertirAOrden } from '../../hooks/useCotizaciones';
 import { useAuth, usePermissions } from '../../hooks/useAuth';
 import { useCliente } from '../../hooks/useClientes';
+import { useContactos } from '../../hooks/useContactos';
 import type { CotizacionConItems } from '../../services/cotizaciones.service';
 import { getEmpresaConfig } from '../../services/config.service';
 import { formatDate, formatCurrency } from '../../lib/formatters';
@@ -15,6 +17,7 @@ import { StatusBadge } from '../../components/shared/StatusBadge';
 import { PageLoader } from '../../components/shared/LoadingSpinner';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { ContactoEmailDialog } from '../../components/shared/ContactoEmailDialog';
 
 export default function CotizacionDetallePage() {
   const { id }   = useParams<{ id: string }>();
@@ -25,7 +28,10 @@ export default function CotizacionDetallePage() {
   const { data, isLoading, error } = useCotizacion(id);
   const updateEstado  = useUpdateCotizacionEstado();
   const convertirAOS  = useConvertirAOrden(user?.id ?? null);
-  const { data: cliente } = useCliente(data?.cliente_id ?? undefined);
+  const { data: cliente }          = useCliente(data?.cliente_id ?? undefined);
+  const { data: contactos = [] }   = useContactos(data?.cliente_id ?? undefined);
+
+  const [showContactoDialog, setShowContactoDialog] = useState(false);
 
   if (isLoading) return <PageLoader />;
 
@@ -49,11 +55,20 @@ export default function CotizacionDetallePage() {
     saveAs(blob, `${cotizacion.numero}.pdf`);
   }
 
-  async function enviarPorEmail() {
+  function enviarPorEmail() {
+    const tieneOpciones = contactos.some(c => c.email) || !!cliente?.email;
+    if (tieneOpciones) {
+      setShowContactoDialog(true);
+    } else {
+      enviarEmailA('');
+    }
+  }
+
+  async function enviarEmailA(email: string) {
     await descargarPDF();
     const { nombre } = getEmpresaConfig();
     abrirMailto({
-      to:      cliente?.email ?? '',
+      to:      email,
       subject: `Cotización ${cotizacion.numero} — ${nombre}`,
       body:
         `Estimado/a ${cotizacion.cliente_nombre},\n\n` +
@@ -255,6 +270,14 @@ export default function CotizacionDetallePage() {
           </CardContent>
         </Card>
       )}
+
+      <ContactoEmailDialog
+        open={showContactoDialog}
+        onClose={() => setShowContactoDialog(false)}
+        contactos={contactos}
+        emailGeneral={cliente?.email}
+        onSelect={email => enviarEmailA(email)}
+      />
     </div>
   );
 }

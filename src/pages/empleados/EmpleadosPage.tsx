@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Pencil, UserMinus, UserCheck } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Eye, Pencil, UserMinus, UserCheck } from 'lucide-react';
 import { useEmpleados, useUpdateEmpleado } from '../../hooks/useEmpleados';
 import type { Empleado } from '../../types/supabase.types';
 import { formatDate, formatCurrency } from '../../lib/formatters';
@@ -17,6 +18,7 @@ const CONTRATO_LABEL: Record<string, string> = {
 };
 
 export default function EmpleadosPage() {
+  const navigate = useNavigate();
   const { data: empleados = [], isLoading } = useEmpleados();
   const update = useUpdateEmpleado();
 
@@ -90,6 +92,14 @@ export default function EmpleadosPage() {
           <Button
             variant="ghost"
             size="icon"
+            title="Ver detalle"
+            onClick={() => navigate(`/empleados/${row.id}`)}
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
             title="Editar"
             onClick={() => openEdit(row)}
           >
@@ -135,6 +145,7 @@ export default function EmpleadosPage() {
         searchable
         searchPlaceholder="Buscar por nombre, apellido o cédula..."
         emptyMessage="No hay empleados registrados. ¡Crea el primero!"
+        onRowClick={row => navigate(`/empleados/${row.id}`)}
       />
 
       <EmpleadoForm
