@@ -145,7 +145,7 @@ export async function convertirCotizacionAOrden(
     const ordenFormData: OrdenFormData = {
       cliente_id:     cot.cliente_id ?? '',
       cliente_nombre: cot.cliente_nombre,
-      tipo_doc:       'O.S.',
+      tipo_doc:       cot.iva > 0 ? 'F.E.' : 'O.S.',
       modo_cobro:     cot.modo_cobro,
       kg_total:       0,
       tarifa_kg:      0,

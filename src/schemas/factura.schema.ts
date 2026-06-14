@@ -4,7 +4,6 @@ export const registrarFESchema = z.object({
   orden_ids:   z.array(z.string()).min(1, 'Selecciona al menos una orden'),
   numero:      z.string().min(1, 'Ingresa el número de factura'),
   fecha:       z.string().min(1, 'Ingresa la fecha'),
-  aplica_ret:  z.boolean(),
   cuenta:      z.string(),
   observacion: z.string(),
 });

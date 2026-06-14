@@ -3,18 +3,20 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell, Legend,
 } from 'recharts';
-import { TrendingUp, Wallet, Users, Package } from 'lucide-react';
+import { TrendingUp, Wallet, Users, Package, Download } from 'lucide-react';
 import {
   useReporteVentas,
   useReporteCartera,
   useReporteNomina,
   useReporteInventario,
 } from '../../hooks/useReportes';
-import { formatCurrency } from '../../lib/formatters';
+import { formatCurrency, formatDate } from '../../lib/formatters';
+import { downloadCSV } from '../../lib/csv';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { PageLoader } from '../../components/shared/LoadingSpinner';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Select } from '../../components/ui/select';
+import { Button } from '../../components/ui/button';
 
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = [CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2];
@@ -66,7 +68,22 @@ type TabId = typeof TABS[number]['id'];
 // ── Reporte Ventas ────────────────────────────────────────
 function ReporteVentas() {
   const [anio, setAnio] = useState(CURRENT_YEAR);
-  const { mensual, topClientes, totalFacturado, totalCobrado, ticketPromedio, totalOrdenes, isLoading } = useReporteVentas(anio);
+  const { mensual, topClientes, totalFacturado, totalCobrado, ticketPromedio, totalOrdenes, activas, isLoading } = useReporteVentas(anio);
+
+  function exportarOrdenes() {
+    downloadCSV(`ventas_${anio}`, [
+      'No. Orden', 'Fecha', 'Cliente', 'Tipo', 'Modo Cobro', 'Subtotal', 'IVA', 'Total', 'Estado',
+    ], (activas ?? []).map(o => [
+      o.no_doc, o.fecha, o.cliente_nombre, o.tipo_doc, o.modo_cobro,
+      o.valor, o.iva, o.valor + o.iva, o.estado,
+    ]));
+  }
+
+  function exportarMensual() {
+    downloadCSV(`ventas_mensual_${anio}`, ['Mes', 'Facturado', 'Cobrado', 'Órdenes'],
+      mensual.map(m => [m.mes, m.Facturado, m.Cobrado, m.ordenes])
+    );
+  }
 
   if (isLoading) return <PageLoader />;
 
@@ -76,6 +93,13 @@ function ReporteVentas() {
         <Select value={anio} onChange={e => setAnio(Number(e.target.value))} className="w-28">
           {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
         </Select>
+        <div className="flex-1" />
+        <Button variant="outline" size="sm" onClick={exportarMensual}>
+          <Download className="h-3.5 w-3.5 mr-1" /> Mensual CSV
+        </Button>
+        <Button variant="outline" size="sm" onClick={exportarOrdenes}>
+          <Download className="h-3.5 w-3.5 mr-1" /> Detalle CSV
+        </Button>
       </div>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -145,12 +169,34 @@ function ReporteVentas() {
 
 // ── Reporte Cartera ───────────────────────────────────────
 function ReporteCartera() {
-  const { buckets, porCliente, totalCartera, enRiesgo, isLoading } = useReporteCartera();
+  const { buckets, porCliente, conDias, totalCartera, enRiesgo, isLoading } = useReporteCartera();
+
+  function exportarCartera() {
+    downloadCSV('cartera_pendiente', [
+      'No. Factura', 'Fecha', 'Cliente', 'Total', 'Días vencida',
+    ], (conDias ?? []).map(f => [
+      f.numero, f.fecha, f.cliente_nombre, f.total, f.dias,
+    ]));
+  }
+
+  function exportarEstadoCuenta() {
+    downloadCSV('estado_cuenta_clientes', ['Cliente', 'Facturas', 'Días máx', 'Total pendiente'],
+      (porCliente ?? []).map(c => [c.nombre, c.facturas, c.diasMax, c.valor])
+    );
+  }
 
   if (isLoading) return <PageLoader />;
 
   return (
     <div className="flex flex-col gap-5">
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" size="sm" onClick={exportarEstadoCuenta}>
+          <Download className="h-3.5 w-3.5 mr-1" /> Estado cuenta CSV
+        </Button>
+        <Button variant="outline" size="sm" onClick={exportarCartera}>
+          <Download className="h-3.5 w-3.5 mr-1" /> Cartera detalle CSV
+        </Button>
+      </div>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <KpiMini label="Total en cartera" value={formatCurrency(totalCartera)} />
         <KpiMini label="En riesgo (> 60d)" value={formatCurrency(enRiesgo)} sub={totalCartera > 0 ? `${Math.round(enRiesgo / totalCartera * 100)}% del total` : ''} />
@@ -237,7 +283,18 @@ function ReporteCartera() {
 // ── Reporte Nómina ────────────────────────────────────────
 function ReporteNomina() {
   const [anio, setAnio] = useState(CURRENT_YEAR);
-  const { mensual, porEmpleado, totalDevengado, totalNeto, totalCosto, isLoading } = useReporteNomina(anio);
+  const { mensual, porEmpleado, totalDevengado, totalNeto, totalCosto, nominas, isLoading } = useReporteNomina(anio);
+
+  function exportarNominas() {
+    downloadCSV(`nomina_${anio}`, [
+      'Empleado ID', 'Mes', 'Año', 'Días', 'Salario base', 'Aux transporte',
+      'Total devengado', 'Salud emp.', 'Pensión emp.', 'Total deducciones', 'Neto a pagar', 'Estado',
+    ], (nominas ?? []).map(n => [
+      n.empleado_id, n.periodo_mes, n.periodo_anio, n.dias_trabajados,
+      n.salario_base, n.aux_transporte, n.total_devengado,
+      n.salud_empleado, n.pension_empleado, n.total_deducciones, n.neto_pagar, n.estado,
+    ]));
+  }
 
   if (isLoading) return <PageLoader />;
 
@@ -247,6 +304,10 @@ function ReporteNomina() {
         <Select value={anio} onChange={e => setAnio(Number(e.target.value))} className="w-28">
           {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
         </Select>
+        <div className="flex-1" />
+        <Button variant="outline" size="sm" onClick={exportarNominas}>
+          <Download className="h-3.5 w-3.5 mr-1" /> Nóminas CSV
+        </Button>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
@@ -322,12 +383,28 @@ function ReporteNomina() {
 
 // ── Reporte Inventario ────────────────────────────────────
 function ReporteInventario() {
-  const { activos, stockBajo, sinStock, valorTotal, porCategoria, criticos, isLoading } = useReporteInventario();
+  const { activos, stockBajo, sinStock, valorTotal, porCategoria, criticos, items, isLoading } = useReporteInventario();
+
+  function exportarInventario() {
+    downloadCSV('inventario', [
+      'Código', 'Nombre', 'Categoría', 'Unidad', 'Stock actual', 'Stock mínimo',
+      'Precio unit.', 'Valor total', 'Proveedor', 'Activo',
+    ], (items ?? []).map(i => [
+      i.codigo, i.nombre, i.categoria ?? '', i.unidad,
+      i.stock_actual, i.stock_minimo, i.precio_unitario,
+      i.stock_actual * i.precio_unitario, i.proveedor ?? '', i.activo ? 'Sí' : 'No',
+    ]));
+  }
 
   if (isLoading) return <PageLoader />;
 
   return (
     <div className="flex flex-col gap-5">
+      <div className="flex justify-end">
+        <Button variant="outline" size="sm" onClick={exportarInventario}>
+          <Download className="h-3.5 w-3.5 mr-1" /> Inventario CSV
+        </Button>
+      </div>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <KpiMini label="Ítems activos"    value={activos.length.toString()} />
         <KpiMini label="Stock bajo"       value={stockBajo.length.toString()} sub={stockBajo.length > 0 ? 'Requieren reposición' : 'Todo en orden'} />

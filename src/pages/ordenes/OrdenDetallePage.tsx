@@ -3,9 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { pdf } from '@react-pdf/renderer';
 import { saveAs } from 'file-saver';
-import {
-  Download, ArrowLeft, Truck, CreditCard, Ban, RefreshCw,
-} from 'lucide-react';
+import { Download, ArrowLeft, Truck, CreditCard, Ban, RefreshCw } from 'lucide-react';
 import { useOrden, useUpdateOrdenEstado } from '../../hooks/useOrdenes';
 import { usePermissions } from '../../hooks/useAuth';
 import { updateOrdenPdfUrl, uploadOrdenPDF, type OrdenConItems } from '../../services/ordenes.service';
@@ -16,12 +14,12 @@ import { OrdenPDF } from '../../pdf/OrdenPDF';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { PageLoader } from '../../components/shared/LoadingSpinner';
-import { ConfirmDialog } from '../../components/shared/ConfirmDialog';
 import { Dialog } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
 import { Label } from '../../components/ui/label';
 import { Input } from '../../components/ui/input';
 import { Select } from '../../components/ui/select';
+import { Textarea } from '../../components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 
 // Valid estado transitions
@@ -46,10 +44,11 @@ export default function OrdenDetallePage() {
   const [showEstadoModal,  setShowEstadoModal]  = useState(false);
   const [pdfLoading,       setPdfLoading]       = useState(false);
 
-  const [fechaPago,    setFechaPago]    = useState('');
-  const [formaPago,    setFormaPago]    = useState('TRANSFERENCIA');
-  const [fechaEntrega, setFechaEntrega] = useState('');
-  const [nuevoEstado,  setNuevoEstado]  = useState<Orden['estado'] | ''>('');
+  const [fechaPago,       setFechaPago]       = useState('');
+  const [formaPago,       setFormaPago]       = useState('TRANSFERENCIA');
+  const [fechaEntrega,    setFechaEntrega]    = useState('');
+  const [nuevoEstado,     setNuevoEstado]     = useState<Orden['estado'] | ''>('');
+  const [motivoAnulacion, setMotivoAnulacion] = useState('');
 
   if (isLoading) return <PageLoader />;
 
@@ -118,8 +117,13 @@ export default function OrdenDetallePage() {
   }
 
   async function handleAnular() {
-    await updateEstado.mutateAsync({ id: orden.id, estado: 'ANULADA' });
+    if (!motivoAnulacion.trim()) { toast.error('Ingresa el motivo de anulación'); return; }
+    await updateEstado.mutateAsync({
+      id: orden.id, estado: 'ANULADA',
+      extra: { motivo_anulacion: motivoAnulacion.trim() },
+    });
     setShowAnularDialog(false);
+    setMotivoAnulacion('');
   }
 
   return (
@@ -213,6 +217,20 @@ export default function OrdenDetallePage() {
                 <>
                   <dt className="text-gray-500">No. Factura</dt>
                   <dd className="font-mono">{orden.no_factura}</dd>
+                </>
+              )}
+              {orden.estado === 'ANULADA' && (
+                <>
+                  <dt className="text-gray-500">Fecha anulación</dt>
+                  <dd className="text-red-600 font-medium">{formatDate(orden.updated_at)}</dd>
+                  {orden.motivo_anulacion && (
+                    <>
+                      <dt className="text-gray-500 col-span-2 pt-1 border-t border-gray-100 mt-1">Motivo de anulación</dt>
+                      <dd className="col-span-2 text-red-700 bg-red-50 rounded-md px-3 py-2 text-sm whitespace-pre-wrap">
+                        {orden.motivo_anulacion}
+                      </dd>
+                    </>
+                  )}
                 </>
               )}
             </dl>
@@ -360,15 +378,42 @@ export default function OrdenDetallePage() {
         </div>
       </Dialog>
 
-      <ConfirmDialog
+      <Dialog
         open={showAnularDialog}
-        onClose={() => setShowAnularDialog(false)}
-        onConfirm={handleAnular}
+        onClose={() => { setShowAnularDialog(false); setMotivoAnulacion(''); }}
         title={`Anular orden ${noDocLabel}`}
-        description={`Esta acción anulará la orden ${noDocLabel}. El número no se reutilizará. ¿Confirmas?`}
-        confirmLabel="Sí, anular"
-        loading={updateEstado.isPending}
-      />
+      >
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-gray-600">
+            Esta acción anulará la orden <strong>{noDocLabel}</strong>. El número no se reutilizará.
+          </p>
+          <div className="flex flex-col gap-1.5">
+            <Label>Motivo de anulación *</Label>
+            <Textarea
+              placeholder="Describe el motivo por el cual se anula esta orden..."
+              rows={3}
+              value={motivoAnulacion}
+              onChange={e => setMotivoAnulacion(e.target.value)}
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => { setShowAnularDialog(false); setMotivoAnulacion(''); }}
+              disabled={updateEstado.isPending}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleAnular}
+              disabled={updateEstado.isPending || !motivoAnulacion.trim()}
+            >
+              {updateEstado.isPending ? 'Anulando...' : 'Confirmar anulación'}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 }

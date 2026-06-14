@@ -7,7 +7,8 @@ export const EMPRESA = {
   prefijo:   'TT',
 } as const;
 
-export const VALOR_MINIMO_ORDEN = 5_000;
+export const VALOR_MINIMO_ORDEN    = 5_000;
+export const UMBRAL_RETENCIONES   = 199_999;
 
 export const TASAS = {
   IVA:         0.19,

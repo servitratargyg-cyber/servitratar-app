@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
 import type { Factura, Orden } from '../types/supabase.types';
 import type { RegistrarFEData, RegistrarCobroData } from '../schemas/factura.schema';
-import { TASAS } from '../lib/constants';
+import { TASAS, UMBRAL_RETENCIONES } from '../lib/constants';
 import { getEmpresaConfig } from './config.service';
 import { updateOrdenEstado } from './ordenes.service';
 
@@ -32,14 +32,15 @@ export async function getOrdenesParaFacturar() {
   return { data: (data ?? []) as Orden[], error };
 }
 
-export function calcularFactura(ordenes: Orden[], aplica_ret: boolean) {
-  const base          = ordenes.reduce((s, o) => s + o.valor, 0);
-  const iva           = ordenes.reduce((s, o) => s + o.iva,   0);
-  const rete_fuente   = aplica_ret ? Math.round(base * TASAS.RETE_FUENTE) : 0;
-  const rete_ica      = aplica_ret ? Math.round(base * TASAS.RETE_ICA)    : 0;
+export function calcularFactura(ordenes: Orden[]) {
+  const base        = ordenes.reduce((s, o) => s + o.valor, 0);
+  const iva         = ordenes.reduce((s, o) => s + o.iva,   0);
+  const aplica_ret  = base > UMBRAL_RETENCIONES;
+  const rete_fuente = aplica_ret ? Math.round(base * TASAS.RETE_FUENTE) : 0;
+  const rete_ica    = aplica_ret ? Math.round(base * TASAS.RETE_ICA)    : 0;
   const total_sin_ret = base + iva;
   const total         = total_sin_ret - rete_fuente - rete_ica;
-  return { base, iva, rete_fuente, rete_ica, total_sin_ret, total };
+  return { base, iva, aplica_ret, rete_fuente, rete_ica, total_sin_ret, total };
 }
 
 export async function registrarFE(
@@ -47,7 +48,7 @@ export async function registrarFE(
   ordenes: Orden[]
 ): Promise<{ data: Factura | null; error: Error | null }> {
   try {
-    const calc     = calcularFactura(ordenes, formData.aplica_ret);
+    const calc     = calcularFactura(ordenes);
     const { prefijo } = getEmpresaConfig();
     const remision    = ordenes
       .map(o => `${prefijo}${o.no_doc}`)

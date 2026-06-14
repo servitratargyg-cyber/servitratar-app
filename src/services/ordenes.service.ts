@@ -70,13 +70,16 @@ export async function createOrden(
 ): Promise<{ data: OrdenConItems | null; error: Error | null }> {
   try {
     const noDoc    = await getNextNoDoc();
-    const today    = new Date().toISOString().split('T')[0];
+    const now      = new Date();
+    const today    = now.toISOString().split('T')[0];
+    const hora     = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00`;
     const nonEmpty = formData.items.filter(i => i.descripcion.trim() !== '');
     const cantTotal = nonEmpty.reduce((s, i) => s + (i.cantidad ?? 0), 0);
 
     const ordenPayload = {
       no_doc:         noDoc,
       fecha:          today,
+      hora,
       cliente_id:     formData.cliente_id,
       cliente_nombre: formData.cliente_nombre,
       tipo_doc:       formData.tipo_doc,
@@ -140,7 +143,7 @@ export async function createOrden(
 export async function updateOrdenEstado(
   id: string,
   estado: Orden['estado'],
-  extra: Partial<Pick<Orden, 'fecha_entrega' | 'fecha_pago' | 'forma_pago' | 'no_factura' | 'pdf_url'>> = {}
+  extra: Partial<Pick<Orden, 'fecha_entrega' | 'fecha_pago' | 'forma_pago' | 'no_factura' | 'pdf_url' | 'motivo_anulacion'>> = {}
 ) {
   const payload = { estado, ...extra, updated_at: new Date().toISOString() };
   const { data, error } = await supabase

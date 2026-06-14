@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Download, RefreshCw, CheckCircle, XCircle, Send } from 'lucide-react';
+import { ArrowLeft, Download, CheckCircle, XCircle, Send } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import { pdf } from '@react-pdf/renderer';
 import { useCotizacion, useUpdateCotizacionEstado, useConvertirAOrden } from '../../hooks/useCotizaciones';
@@ -105,28 +105,20 @@ export default function CotizacionDetallePage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="text-green-600 border-green-600 hover:bg-green-50"
-                    onClick={() => updateEstado.mutate({ id: cotizacion.id, estado: 'APROBADA' })}
-                    disabled={updateEstado.isPending || convertirAOS.isPending}
-                  >
-                    <CheckCircle className="h-4 w-4 mr-1" /> Aprobar
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
                     className="text-red-600 border-red-600 hover:bg-red-50"
                     onClick={() => updateEstado.mutate({ id: cotizacion.id, estado: 'RECHAZADA' })}
-                    disabled={updateEstado.isPending}
+                    disabled={updateEstado.isPending || convertirAOS.isPending}
                   >
                     <XCircle className="h-4 w-4 mr-1" /> Rechazar
                   </Button>
                   <Button
                     size="sm"
+                    className="bg-green-600 hover:bg-green-700 text-white"
                     onClick={handleConvertir}
                     disabled={convertirAOS.isPending || updateEstado.isPending}
                   >
-                    <RefreshCw className="h-4 w-4 mr-1" />
-                    {convertirAOS.isPending ? 'Convirtiendo...' : 'Convertir a OS'}
+                    <CheckCircle className="h-4 w-4 mr-1" />
+                    {convertirAOS.isPending ? 'Creando OS...' : 'Aprobar y crear OS'}
                   </Button>
                 </>
               )}

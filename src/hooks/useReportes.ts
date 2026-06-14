@@ -44,7 +44,7 @@ export function useReporteVentas(anio: number) {
     const totalCobrado   = activas.filter(o => o.estado === 'PAGADA').reduce((s, o) => s + o.valor + o.iva, 0);
     const ticketPromedio = activas.length > 0 ? totalFacturado / activas.length : 0;
 
-    return { mensual, topClientes, totalFacturado, totalCobrado, ticketPromedio, totalOrdenes: activas.length };
+    return { mensual, topClientes, totalFacturado, totalCobrado, ticketPromedio, totalOrdenes: activas.length, activas };
   }, [ordenes, anio]);
 
   return { ...data, isLoading };
@@ -93,7 +93,7 @@ export function useReporteCartera() {
     const totalCartera = pendientes.reduce((s, f) => s + f.total, 0);
     const enRiesgo     = conDias.filter(f => f.dias > 60).reduce((s, f) => s + f.total, 0);
 
-    return { buckets, porCliente, conDias, totalCartera, enRiesgo };
+    return { buckets, porCliente, conDias, pendientes, totalCartera, enRiesgo };
   }, [facturas]);
 
   return { ...data, isLoading };
@@ -143,7 +143,7 @@ export function useReporteNomina(anio: number) {
     const totalNeto      = nominas.reduce((s, n) => s + n.neto_pagar, 0);
     const totalCosto     = porEmpleado.reduce((s, e) => s + e.costoEmpresa, 0);
 
-    return { mensual, porEmpleado, totalDevengado, totalNeto, totalCosto };
+    return { mensual, porEmpleado, totalDevengado, totalNeto, totalCosto, nominas };
   }, [nominas, anio]);
 
   return { ...data, isLoading };
@@ -176,7 +176,7 @@ export function useReporteInventario() {
       return pctA - pctB;
     });
 
-    return { activos, stockBajo, sinStock, valorTotal, porCategoria, criticos };
+    return { activos, stockBajo, sinStock, valorTotal, porCategoria, criticos, items };
   }, [items]);
 
   return { ...data, isLoading };

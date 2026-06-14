@@ -4,9 +4,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { registrarFESchema, type RegistrarFEData } from '../../schemas/factura.schema';
 import { calcularFactura } from '../../services/facturas.service';
 import { useOrdenesParaFacturar, useRegistrarFE } from '../../hooks/useFacturas';
-import { useCliente } from '../../hooks/useClientes';
 import type { Orden } from '../../types/supabase.types';
-import { TASAS } from '../../lib/constants';
+import { TASAS, UMBRAL_RETENCIONES } from '../../lib/constants';
 import { getEmpresaConfig } from '../../services/config.service';
 import { formatCurrency, formatDate } from '../../lib/formatters';
 import { Dialog } from '../../components/ui/dialog';
@@ -20,24 +19,9 @@ interface Props {
   onClose: () => void;
 }
 
-// Auto-populates aplica_ret from the first selected orden's client
-function ClienteRetSync({
-  clienteId,
-  onAplicaRet,
-}: {
-  clienteId: string;
-  onAplicaRet: (v: boolean) => void;
-}) {
-  const { data: cliente } = useCliente(clienteId || undefined);
-  useEffect(() => {
-    if (cliente) onAplicaRet(cliente.aplica_ret);
-  }, [cliente, onAplicaRet]);
-  return null;
-}
-
 export function RegistrarFEModal({ open, onClose }: Props) {
   const { data: todasOrdenes = [] } = useOrdenesParaFacturar();
-  const registrar  = useRegistrarFE();
+  const registrar   = useRegistrarFE();
   const { prefijo } = getEmpresaConfig();
 
   const today = new Date().toISOString().split('T')[0];
@@ -55,18 +39,12 @@ export function RegistrarFEModal({ open, onClose }: Props) {
       orden_ids:   [],
       numero:      '',
       fecha:       today,
-      aplica_ret:  false,
       cuenta:      '',
       observacion: '',
     },
   });
 
-  const [ordenIds, aplicaRet] = useWatch({
-    control,
-    name: ['orden_ids', 'aplica_ret'],
-  });
-
-  // Filter by client for grouping
+  const ordenIds = useWatch({ control, name: 'orden_ids' });
   const [clienteFiltro, setClienteFiltro] = useState('');
 
   const clientes = useMemo(() => {
@@ -82,20 +60,17 @@ export function RegistrarFEModal({ open, onClose }: Props) {
     [todasOrdenes, clienteFiltro]
   );
 
-  const selectedIds  = (ordenIds as string[]) ?? [];
+  const selectedIds     = (ordenIds as string[]) ?? [];
   const selectedOrdenes: Orden[] = todasOrdenes.filter(o => selectedIds.includes(o.id));
-  const calc = selectedOrdenes.length > 0
-    ? calcularFactura(selectedOrdenes, aplicaRet as boolean)
-    : null;
+  const calc = selectedOrdenes.length > 0 ? calcularFactura(selectedOrdenes) : null;
 
-  // When client filter changes, clear selection
   useEffect(() => {
     setValue('orden_ids', []);
   }, [clienteFiltro, setValue]);
 
   useEffect(() => {
     if (open) {
-      reset({ orden_ids: [], numero: '', fecha: today, aplica_ret: false, cuenta: '', observacion: '' });
+      reset({ orden_ids: [], numero: '', fecha: today, cuenta: '', observacion: '' });
       setClienteFiltro('');
     }
   }, [open, reset, today]);
@@ -109,8 +84,8 @@ export function RegistrarFEModal({ open, onClose }: Props) {
   }
 
   function toggleAll() {
-    const current  = (ordenIds as string[]) ?? [];
-    const allIds   = ordenesFiltradas.map(o => o.id);
+    const current   = (ordenIds as string[]) ?? [];
+    const allIds    = ordenesFiltradas.map(o => o.id);
     const allChecked = allIds.every(id => current.includes(id));
     setValue('orden_ids', allChecked ? [] : allIds);
   }
@@ -120,19 +95,8 @@ export function RegistrarFEModal({ open, onClose }: Props) {
     if (!result.error) onClose();
   }
 
-  const primerClienteId = selectedOrdenes[0]?.cliente_id ?? '';
-
   return (
     <Dialog open={open} onClose={onClose} title="Registrar Factura Electrónica" className="max-w-2xl">
-
-      {/* Auto-sync aplica_ret from client */}
-      {primerClienteId && (
-        <ClienteRetSync
-          clienteId={primerClienteId}
-          onAplicaRet={v => setValue('aplica_ret', v)}
-        />
-      )}
-
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
 
         {/* ── Filtro por cliente ──────────────────── */}
@@ -150,12 +114,14 @@ export function RegistrarFEModal({ open, onClose }: Props) {
           </select>
         </div>
 
-        {/* ── Lista de órdenes con checkboxes ────── */}
+        {/* ── Lista de órdenes ────────────────────── */}
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center justify-between">
             <Label>
               Órdenes a incluir *{' '}
-              <span className="text-gray-400 font-normal">({selectedIds.length} seleccionada{selectedIds.length !== 1 ? 's' : ''})</span>
+              <span className="text-gray-400 font-normal">
+                ({selectedIds.length} seleccionada{selectedIds.length !== 1 ? 's' : ''})
+              </span>
             </Label>
             {ordenesFiltradas.length > 1 && (
               <button
@@ -233,7 +199,7 @@ export function RegistrarFEModal({ open, onClose }: Props) {
               <span className="text-gray-500">Total sin retenciones</span>
               <span className="tabular-nums font-medium text-right">{formatCurrency(calc.total_sin_ret)}</span>
 
-              {(aplicaRet as boolean) && (
+              {calc.aplica_ret && (
                 <>
                   <span className="text-gray-500">
                     Rete Fuente ({(TASAS.RETE_FUENTE * 100).toFixed(0)}%)
@@ -258,16 +224,17 @@ export function RegistrarFEModal({ open, onClose }: Props) {
               </span>
             </div>
 
-            <label className="flex items-center gap-2 cursor-pointer mt-3 pt-3 border-t border-gray-200">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-gray-300 text-[#e8734a]"
-                {...register('aplica_ret')}
-              />
-              <span className="text-sm text-gray-700">
-                Aplica retenciones (Rete Fuente + Rete ICA)
-              </span>
-            </label>
+            {/* Indicador automático de retenciones */}
+            <div className={`mt-3 pt-3 border-t border-gray-200 flex items-center gap-2 text-xs ${
+              calc.aplica_ret ? 'text-amber-600' : 'text-gray-400'
+            }`}>
+              <span className={`h-2 w-2 rounded-full flex-shrink-0 ${
+                calc.aplica_ret ? 'bg-amber-500' : 'bg-gray-300'
+              }`} />
+              {calc.aplica_ret
+                ? `Retenciones aplicadas automáticamente (base > ${formatCurrency(UMBRAL_RETENCIONES)})`
+                : `Retenciones no aplican (base ≤ ${formatCurrency(UMBRAL_RETENCIONES)})`}
+            </div>
           </div>
         )}
 

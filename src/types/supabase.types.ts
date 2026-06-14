@@ -114,11 +114,12 @@ export interface Orden {
   fecha_pago:     string | null;
   forma_pago:     string | null;
   no_factura:     string | null;
-  observacion:    string | null;
-  pdf_url:        string | null;
-  created_by:     string | null;
-  created_at:     string;
-  updated_at:     string;
+  observacion:       string | null;
+  motivo_anulacion:  string | null;
+  pdf_url:           string | null;
+  created_by:        string | null;
+  created_at:        string;
+  updated_at:        string;
 }
 
 export interface OrdenItem {
