@@ -8,26 +8,33 @@ import { useAuth, usePermissions } from '../hooks/useAuth';
 import { Layout } from '../components/layout/Layout';
 import { PageLoader } from '../components/shared/LoadingSpinner';
 
-const LoginPage         = lazy(() => import('../pages/auth/LoginPage'));
-const DashboardPage     = lazy(() => import('../pages/dashboard/DashboardPage'));
-const OrdenesPage       = lazy(() => import('../pages/ordenes/OrdenesPage'));
-const ClientesPage      = lazy(() => import('../pages/clientes/ClientesPage'));
-const FacturacionPage   = lazy(() => import('../pages/facturacion/FacturacionPage'));
-const CarteraPage       = lazy(() => import('../pages/cartera/CarteraPage'));
-const CotizacionesPage  = lazy(() => import('../pages/cotizaciones/CotizacionesPage'));
-const InventarioPage    = lazy(() => import('../pages/inventario/InventarioPage'));
-const EmpleadosPage     = lazy(() => import('../pages/empleados/EmpleadosPage'));
-const NominaPage        = lazy(() => import('../pages/empleados/NominaPage'));
-const ReportesPage      = lazy(() => import('../pages/reportes/ReportesPage'));
+// Pages — auth
+const LoginPage = lazy(() => import('../pages/auth/LoginPage'));
 
-function SuspenseWrapper({ children }: { children: ReactNode }) {
+// Pages — core
+const DashboardPage    = lazy(() => import('../pages/dashboard/DashboardPage'));
+const OrdenesPage      = lazy(() => import('../pages/ordenes/OrdenesPage'));
+const NuevaOrdenPage   = lazy(() => import('../pages/ordenes/NuevaOrdenPage'));
+const OrdenDetallePage = lazy(() => import('../pages/ordenes/OrdenDetallePage'));
+const ClientesPage     = lazy(() => import('../pages/clientes/ClientesPage'));
+
+// Pages — gated by role
+const CotizacionesPage = lazy(() => import('../pages/cotizaciones/CotizacionesPage'));
+const FacturacionPage  = lazy(() => import('../pages/facturacion/FacturacionPage'));
+const CarteraPage      = lazy(() => import('../pages/cartera/CarteraPage'));
+const InventarioPage   = lazy(() => import('../pages/inventario/InventarioPage'));
+const EmpleadosPage    = lazy(() => import('../pages/empleados/EmpleadosPage'));
+const NominaPage       = lazy(() => import('../pages/empleados/NominaPage'));
+const ReportesPage     = lazy(() => import('../pages/reportes/ReportesPage'));
+
+function Wrap({ children }: { children: ReactNode }) {
   return <Suspense fallback={<PageLoader />}>{children}</Suspense>;
 }
 
 function ProtectedRoute() {
   const { user, loading } = useAuth();
   if (loading) return <PageLoader />;
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user)   return <Navigate to="/login" replace />;
   return <Outlet />;
 }
 
@@ -36,10 +43,17 @@ function RoleGuard({ allowed }: { allowed: boolean }) {
   return <Outlet />;
 }
 
+// Small role-gate wrappers (hooks must be at component level)
+function GuardCotizaciones() { const { can } = usePermissions(); return <RoleGuard allowed={can.cotizaciones} />; }
+function GuardFacturacion()  { const { can } = usePermissions(); return <RoleGuard allowed={can.facturacion}  />; }
+function GuardInventario()   { const { can } = usePermissions(); return <RoleGuard allowed={can.inventario}   />; }
+function GuardNomina()       { const { can } = usePermissions(); return <RoleGuard allowed={can.nomina}       />; }
+function GuardCrearOrden()   { const { can } = usePermissions(); return <RoleGuard allowed={can.crearOrdenes} />; }
+
 export const router = createBrowserRouter([
   {
     path:    '/login',
-    element: <SuspenseWrapper><LoginPage /></SuspenseWrapper>,
+    element: <Wrap><LoginPage /></Wrap>,
   },
   {
     element: <ProtectedRoute />,
@@ -47,64 +61,56 @@ export const router = createBrowserRouter([
       {
         element: <Layout />,
         children: [
+          // Dashboard
+          { index: true, element: <Wrap><DashboardPage /></Wrap> },
+
+          // Órdenes — ver (todos los roles autenticados)
+          { path: 'ordenes',      element: <Wrap><OrdenesPage /></Wrap> },
+          { path: 'ordenes/:id',  element: <Wrap><OrdenDetallePage /></Wrap> },
+
+          // Órdenes — crear (admin + operario)
           {
-            index:   true,
-            element: <SuspenseWrapper><DashboardPage /></SuspenseWrapper>,
-          },
-          {
-            path:    'ordenes',
-            element: <SuspenseWrapper><OrdenesPage /></SuspenseWrapper>,
-          },
-          {
-            path:    'clientes',
-            element: <SuspenseWrapper><ClientesPage /></SuspenseWrapper>,
-          },
-          {
-            element:  <RoleGuardCotizaciones />,
+            element: <GuardCrearOrden />,
             children: [
-              {
-                path:    'cotizaciones',
-                element: <SuspenseWrapper><CotizacionesPage /></SuspenseWrapper>,
-              },
+              { path: 'ordenes/nueva', element: <Wrap><NuevaOrdenPage /></Wrap> },
             ],
           },
+
+          // Clientes (todos)
+          { path: 'clientes', element: <Wrap><ClientesPage /></Wrap> },
+
+          // Cotizaciones (admin + operario)
           {
-            element:  <RoleGuardFacturacion />,
+            element: <GuardCotizaciones />,
             children: [
-              {
-                path:    'facturacion',
-                element: <SuspenseWrapper><FacturacionPage /></SuspenseWrapper>,
-              },
-              {
-                path:    'cartera',
-                element: <SuspenseWrapper><CarteraPage /></SuspenseWrapper>,
-              },
+              { path: 'cotizaciones', element: <Wrap><CotizacionesPage /></Wrap> },
             ],
           },
+
+          // Facturación + Cartera (admin + contador)
           {
-            element:  <RoleGuardInventario />,
+            element: <GuardFacturacion />,
             children: [
-              {
-                path:    'inventario',
-                element: <SuspenseWrapper><InventarioPage /></SuspenseWrapper>,
-              },
+              { path: 'facturacion', element: <Wrap><FacturacionPage /></Wrap> },
+              { path: 'cartera',     element: <Wrap><CarteraPage /></Wrap> },
             ],
           },
+
+          // Inventario (admin + operario)
           {
-            element:  <RoleGuardNomina />,
+            element: <GuardInventario />,
             children: [
-              {
-                path:    'empleados',
-                element: <SuspenseWrapper><EmpleadosPage /></SuspenseWrapper>,
-              },
-              {
-                path:    'nomina',
-                element: <SuspenseWrapper><NominaPage /></SuspenseWrapper>,
-              },
-              {
-                path:    'reportes',
-                element: <SuspenseWrapper><ReportesPage /></SuspenseWrapper>,
-              },
+              { path: 'inventario', element: <Wrap><InventarioPage /></Wrap> },
+            ],
+          },
+
+          // Empleados + Nómina + Reportes (admin + contador)
+          {
+            element: <GuardNomina />,
+            children: [
+              { path: 'empleados', element: <Wrap><EmpleadosPage /></Wrap> },
+              { path: 'nomina',    element: <Wrap><NominaPage /></Wrap> },
+              { path: 'reportes',  element: <Wrap><ReportesPage /></Wrap> },
             ],
           },
         ],
@@ -116,23 +122,3 @@ export const router = createBrowserRouter([
     element: <Navigate to="/" replace />,
   },
 ]);
-
-function RoleGuardCotizaciones() {
-  const { can } = usePermissions();
-  return <RoleGuard allowed={can.cotizaciones} />;
-}
-
-function RoleGuardFacturacion() {
-  const { can } = usePermissions();
-  return <RoleGuard allowed={can.facturacion} />;
-}
-
-function RoleGuardInventario() {
-  const { can } = usePermissions();
-  return <RoleGuard allowed={can.inventario} />;
-}
-
-function RoleGuardNomina() {
-  const { can } = usePermissions();
-  return <RoleGuard allowed={can.nomina} />;
-}
