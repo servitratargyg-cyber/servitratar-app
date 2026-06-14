@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, Pencil, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Eye, Pencil, ToggleLeft, ToggleRight, Download } from 'lucide-react';
 import { useClientes, useToggleClienteEstado } from '../../hooks/useClientes';
 import type { Cliente } from '../../types/supabase.types';
+import { downloadCSV } from '../../lib/csv';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { DataTable, type Column } from '../../components/shared/DataTable';
 import { StatusBadge } from '../../components/shared/StatusBadge';
@@ -20,6 +21,18 @@ export default function ClientesPage() {
 
   function openCreate() { setEditCliente(null); setFormOpen(true); }
   function openEdit(c: Cliente) { setEditCliente(c); setFormOpen(true); }
+
+  function exportarCSV() {
+    downloadCSV('clientes', [
+      'Nombre', 'Razón social', 'NIT', 'Ciudad', 'Dirección',
+      'Teléfono', 'Email', 'Modo cobro', 'Tipo doc', 'Tarifa defecto',
+      'Retenciones', 'Convenio', 'Estado',
+    ], clientes.map(c => [
+      c.nombre, c.razon_social, c.nit, c.ciudad, c.direccion,
+      c.telefono, c.email, c.modo_cobro, c.tipo_doc, c.tarifa_defecto,
+      c.aplica_ret ? 'Sí' : 'No', c.convenio, c.estado,
+    ]));
+  }
 
   const columns: Column<Cliente>[] = [
     {
@@ -117,7 +130,12 @@ export default function ClientesPage() {
         description={`${clientes.length} cliente${clientes.length !== 1 ? 's' : ''} registrado${clientes.length !== 1 ? 's' : ''}`}
         breadcrumbs={[{ label: 'Clientes' }]}
         action={
-          <Button onClick={openCreate}>+ Nuevo Cliente</Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={exportarCSV}>
+              <Download className="h-4 w-4 mr-1" /> CSV
+            </Button>
+            <Button onClick={openCreate}>+ Nuevo Cliente</Button>
+          </div>
         }
       />
 

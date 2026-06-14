@@ -16,8 +16,20 @@ export const empleadoFormSchema = z.object({
   eps:               z.string(),
   afp:               z.string(),
   arl:               z.string(),
-  caja_compensacion: z.string(),
-  estado:            z.enum(['ACTIVO', 'INACTIVO', 'RETIRADO']),
+  caja_compensacion:               z.string(),
+  telefono:                        z.string(),
+  email:                           z.string(),
+  contacto_emergencia_nombre:      z.string(),
+  contacto_emergencia_parentesco:  z.string(),
+  contacto_emergencia_telefono:    z.string(),
+  fecha_nacimiento:                z.string(),
+  direccion:                       z.string(),
+  barrio:                          z.string(),
+  nivel_riesgo:                    z.number({ message: 'Requerido' }).int().min(1).max(5).nullable(),
+  talla_camisa:                    z.string(),
+  talla_pantalon:                  z.string(),
+  talla_botas:                     z.string(),
+  estado:                          z.enum(['ACTIVO', 'INACTIVO', 'RETIRADO']),
 });
 
 export type EmpleadoFormData = z.infer<typeof empleadoFormSchema>;

@@ -173,6 +173,15 @@ export interface Cotizacion {
   created_at:     string;
 }
 
+export interface ClienteContacto {
+  id:         string;
+  cliente_id: string;
+  nombre:     string;
+  email:      string | null;
+  telefono:   string;
+  created_at: string;
+}
+
 export interface CotizacionItem {
   id:            string;
   cotizacion_id: string;
@@ -202,10 +211,22 @@ export interface Empleado {
   eps:               string | null;
   afp:               string | null;
   arl:               string | null;
-  caja_compensacion: string | null;
-  estado:            'ACTIVO' | 'INACTIVO' | 'RETIRADO';
-  created_at:        string;
-  updated_at:        string;
+  caja_compensacion:               string | null;
+  telefono:                        string | null;
+  email:                           string | null;
+  contacto_emergencia_nombre:      string | null;
+  contacto_emergencia_parentesco:  string | null;
+  contacto_emergencia_telefono:    string | null;
+  fecha_nacimiento:                string | null;
+  direccion:                       string | null;
+  barrio:                          string | null;
+  nivel_riesgo:                    number | null;
+  talla_camisa:                    string | null;
+  talla_pantalon:                  string | null;
+  talla_botas:                     string | null;
+  estado:                          'ACTIVO' | 'INACTIVO' | 'RETIRADO';
+  created_at:                      string;
+  updated_at:                      string;
 }
 
 export interface Nomina {

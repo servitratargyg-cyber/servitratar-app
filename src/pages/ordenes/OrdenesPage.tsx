@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, FileText } from 'lucide-react';
+import { Eye, FileText, Download } from 'lucide-react';
 import { useOrdenes } from '../../hooks/useOrdenes';
 import { usePermissions } from '../../hooks/useAuth';
 import type { OrdenesFilters } from '../../services/ordenes.service';
@@ -8,6 +8,7 @@ import type { Orden } from '../../types/supabase.types';
 import { ESTADOS_ORDEN } from '../../lib/constants';
 import { getEmpresaConfig } from '../../services/config.service';
 import { formatDate, formatCurrency } from '../../lib/formatters';
+import { downloadCSV } from '../../lib/csv';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { DataTable, type Column } from '../../components/shared/DataTable';
 import { StatusBadge } from '../../components/shared/StatusBadge';
@@ -135,6 +136,18 @@ export default function OrdenesPage() {
     },
   ];
 
+  function exportarCSV() {
+    downloadCSV('ordenes', [
+      'No. Orden', 'Fecha', 'Hora', 'Cliente', 'Tipo', 'Modo cobro',
+      'KG / Cant', 'Subtotal', 'IVA', 'Total', 'Estado', 'No. Factura',
+    ], filtered.map(o => [
+      `${prefijo}${o.no_doc}`, o.fecha, o.hora?.slice(0, 5) ?? '',
+      o.cliente_nombre, o.tipo_doc, o.modo_cobro,
+      o.modo_cobro === 'KG' ? `${o.kg_total} kg` : `${o.cant_total} uds`,
+      o.valor, o.iva, o.valor + o.iva, o.estado, o.no_factura ?? '',
+    ]));
+  }
+
   const toolbar = (
     <>
       <Input
@@ -189,9 +202,14 @@ export default function OrdenesPage() {
         description={`${ordenes.length} orden${ordenes.length !== 1 ? 'es' : ''} en total`}
         breadcrumbs={[{ label: 'Órdenes' }]}
         action={
-          can.crearOrdenes
-            ? <Button onClick={() => navigate('/ordenes/nueva')}>+ Nueva Orden</Button>
-            : undefined
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={exportarCSV}>
+              <Download className="h-4 w-4 mr-1" /> CSV
+            </Button>
+            {can.crearOrdenes && (
+              <Button onClick={() => navigate('/ordenes/nueva')}>+ Nueva Orden</Button>
+            )}
+          </div>
         }
       />
 

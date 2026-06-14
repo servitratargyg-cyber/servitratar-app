@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ExternalLink, Ban } from 'lucide-react';
+import { ExternalLink, Ban, Download } from 'lucide-react';
 import { useFacturas, useAnularFactura } from '../../hooks/useFacturas';
 import type { Factura } from '../../types/supabase.types';
 import { formatDate, formatCurrency } from '../../lib/formatters';
+import { downloadCSV } from '../../lib/csv';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { DataTable, type Column } from '../../components/shared/DataTable';
 import { StatusBadge } from '../../components/shared/StatusBadge';
@@ -115,6 +116,17 @@ export default function FacturacionPage() {
     },
   ];
 
+  function exportarCSV() {
+    downloadCSV('facturas', [
+      'No. Factura', 'Fecha', 'Cliente', 'Remisión', 'Base',
+      'IVA', 'Rete Fuente', 'Rete ICA', 'Total', 'Estado', 'Fecha pago',
+    ], facturas.map(f => [
+      f.numero, f.fecha, f.cliente_nombre, f.remision ?? '',
+      f.base, f.iva, f.rete_fuente, f.rete_ica, f.total,
+      f.estado, f.fecha_pago ?? '',
+    ]));
+  }
+
   const pdtePago    = facturas.filter(f => f.estado === 'PDTE PAGO').length;
   const totalCartera = facturas
     .filter(f => f.estado === 'PDTE PAGO')
@@ -127,7 +139,12 @@ export default function FacturacionPage() {
         description={`${facturas.length} factura${facturas.length !== 1 ? 's' : ''} · ${pdtePago} pendiente${pdtePago !== 1 ? 's' : ''} · ${formatCurrency(totalCartera)} en cartera`}
         breadcrumbs={[{ label: 'Facturación' }]}
         action={
-          <Button onClick={() => setFeOpen(true)}>+ Registrar FE</Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={exportarCSV}>
+              <Download className="h-4 w-4 mr-1" /> CSV
+            </Button>
+            <Button onClick={() => setFeOpen(true)}>+ Registrar FE</Button>
+          </div>
         }
       />
 

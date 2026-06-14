@@ -17,23 +17,35 @@ interface EmpleadoFormProps {
 }
 
 const DEFAULTS: EmpleadoFormData = {
-  nombre:            '',
-  apellido:          '',
-  cedula:            '',
-  cargo:             '',
-  tipo_contrato:     'INDEFINIDO',
-  fecha_ingreso:     '',
-  fecha_retiro:      '',
-  salario_base:      0,
-  aux_transporte:    true,
-  cuenta_bancaria:   '',
-  banco:             '',
-  tipo_cuenta:       null as ('AHORROS' | 'CORRIENTE' | null),
-  eps:               '',
-  afp:               '',
-  arl:               '',
-  caja_compensacion: '',
-  estado:            'ACTIVO',
+  nombre:                       '',
+  apellido:                     '',
+  cedula:                       '',
+  cargo:                        '',
+  tipo_contrato:                'INDEFINIDO',
+  fecha_ingreso:                '',
+  fecha_retiro:                 '',
+  salario_base:                 0,
+  aux_transporte:               true,
+  cuenta_bancaria:              '',
+  banco:                        '',
+  tipo_cuenta:                  null as ('AHORROS' | 'CORRIENTE' | null),
+  eps:                          '',
+  afp:                          '',
+  arl:                          '',
+  caja_compensacion:            '',
+  telefono:                       '',
+  email:                          '',
+  contacto_emergencia_nombre:     '',
+  contacto_emergencia_parentesco: '',
+  contacto_emergencia_telefono:   '',
+  fecha_nacimiento:               '',
+  direccion:                      '',
+  barrio:                         '',
+  nivel_riesgo:                   null as (number | null),
+  talla_camisa:                   '',
+  talla_pantalon:                 '',
+  talla_botas:                    '',
+  estado:                         'ACTIVO',
 };
 
 function toNull(v: string): string | null {
@@ -75,8 +87,20 @@ export function EmpleadoForm({ open, onClose, empleado }: EmpleadoFormProps) {
             eps:               empleado.eps               ?? '',
             afp:               empleado.afp               ?? '',
             arl:               empleado.arl               ?? '',
-            caja_compensacion: empleado.caja_compensacion ?? '',
-            estado:            empleado.estado,
+            caja_compensacion:              empleado.caja_compensacion              ?? '',
+            telefono:                       empleado.telefono                       ?? '',
+            email:                          empleado.email                          ?? '',
+            contacto_emergencia_nombre:     empleado.contacto_emergencia_nombre     ?? '',
+            contacto_emergencia_parentesco: empleado.contacto_emergencia_parentesco ?? '',
+            contacto_emergencia_telefono:   empleado.contacto_emergencia_telefono   ?? '',
+            fecha_nacimiento:               empleado.fecha_nacimiento               ?? '',
+            direccion:                      empleado.direccion                      ?? '',
+            barrio:                         empleado.barrio                         ?? '',
+            nivel_riesgo:                   empleado.nivel_riesgo                   ?? null,
+            talla_camisa:                   empleado.talla_camisa                   ?? '',
+            talla_pantalon:                 empleado.talla_pantalon                 ?? '',
+            talla_botas:                    empleado.talla_botas                    ?? '',
+            estado:                         empleado.estado,
           }
         : DEFAULTS
     );
@@ -99,8 +123,20 @@ export function EmpleadoForm({ open, onClose, empleado }: EmpleadoFormProps) {
       eps:               toNull(data.eps),
       afp:               toNull(data.afp),
       arl:               toNull(data.arl),
-      caja_compensacion: toNull(data.caja_compensacion),
-      estado:            data.estado,
+      caja_compensacion:              toNull(data.caja_compensacion),
+      telefono:                       toNull(data.telefono),
+      email:                          toNull(data.email),
+      contacto_emergencia_nombre:     toNull(data.contacto_emergencia_nombre),
+      contacto_emergencia_parentesco: toNull(data.contacto_emergencia_parentesco),
+      contacto_emergencia_telefono:   toNull(data.contacto_emergencia_telefono),
+      fecha_nacimiento:               toNull(data.fecha_nacimiento),
+      direccion:                      toNull(data.direccion),
+      barrio:                         toNull(data.barrio),
+      nivel_riesgo:                   data.nivel_riesgo ?? null,
+      talla_camisa:                   toNull(data.talla_camisa),
+      talla_pantalon:                 toNull(data.talla_pantalon),
+      talla_botas:                    toNull(data.talla_botas),
+      estado:                         data.estado,
     } satisfies Omit<Empleado, 'id' | 'created_at' | 'updated_at'>;
 
     if (isEdit && empleado) {
@@ -143,6 +179,10 @@ export function EmpleadoForm({ open, onClose, empleado }: EmpleadoFormProps) {
             <Label>Cargo</Label>
             <Input placeholder="Operario" {...register('cargo')} />
           </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Fecha de nacimiento</Label>
+            <Input type="date" {...register('fecha_nacimiento')} />
+          </div>
         </div>
 
         {/* Contrato */}
@@ -181,12 +221,49 @@ export function EmpleadoForm({ open, onClose, empleado }: EmpleadoFormProps) {
         {/* Seguridad social */}
         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide pt-1">Seguridad social</p>
         <div className="grid grid-cols-2 gap-3">
-          {(['eps', 'afp', 'arl', 'caja_compensacion'] as const).map(field => (
-            <div key={field} className="flex flex-col gap-1.5">
-              <Label>{field === 'caja_compensacion' ? 'Caja de compensación' : field.toUpperCase()}</Label>
-              <Input placeholder={field === 'eps' ? 'Sura, Sanitas...' : field === 'afp' ? 'Porvenir, Colpensiones...' : ''} {...register(field)} />
-            </div>
-          ))}
+          <div className="flex flex-col gap-1.5">
+            <Label>EPS</Label>
+            <Input placeholder="Sura, Sanitas, Nueva EPS..." {...register('eps')} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Pensión (AFP)</Label>
+            <Input placeholder="Porvenir, Colpensiones..." {...register('afp')} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>ARL</Label>
+            <Input placeholder="Sura, Positiva..." {...register('arl')} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Nivel de riesgo ARL (1–5)</Label>
+            <Input
+              type="number"
+              min="1"
+              max="5"
+              placeholder="5"
+              {...register('nivel_riesgo', { valueAsNumber: true })}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Caja de compensación</Label>
+            <Input placeholder="Colsubsidio, Compensar..." {...register('caja_compensacion')} />
+          </div>
+        </div>
+
+        {/* Dotación */}
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide pt-1">Dotación</p>
+        <div className="grid grid-cols-3 gap-3">
+          <div className="flex flex-col gap-1.5">
+            <Label>Talla camisa</Label>
+            <Input placeholder="M, L, XL..." {...register('talla_camisa')} className="uppercase" />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Talla pantalón</Label>
+            <Input placeholder="32, 34..." {...register('talla_pantalon')} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Talla botas</Label>
+            <Input placeholder="39, 43..." {...register('talla_botas')} />
+          </div>
         </div>
 
         {/* Datos bancarios */}
@@ -207,6 +284,44 @@ export function EmpleadoForm({ open, onClose, empleado }: EmpleadoFormProps) {
           <div className="col-span-2 flex flex-col gap-1.5">
             <Label>Número de cuenta</Label>
             <Input placeholder="000-000000-00" {...register('cuenta_bancaria')} />
+          </div>
+        </div>
+
+        {/* Datos de contacto y residencia */}
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide pt-1">Contacto y residencia</p>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-1.5">
+            <Label>Teléfono</Label>
+            <Input placeholder="310 000 0000" {...register('telefono')} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Correo electrónico</Label>
+            <Input type="email" placeholder="correo@ejemplo.com" {...register('email')} />
+          </div>
+          <div className="col-span-2 flex flex-col gap-1.5">
+            <Label>Dirección</Label>
+            <Input placeholder="Cra. 69B No. 31-18 Sur" {...register('direccion')} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Barrio</Label>
+            <Input placeholder="Carvajal - Kennedy" {...register('barrio')} />
+          </div>
+        </div>
+
+        {/* Contacto de emergencia */}
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide pt-1">Contacto de emergencia</p>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-1.5">
+            <Label>Nombre completo</Label>
+            <Input placeholder="MARÍA PÉREZ" {...register('contacto_emergencia_nombre')} className="uppercase" />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Parentesco</Label>
+            <Input placeholder="Esposa, Madre, Hermano..." {...register('contacto_emergencia_parentesco')} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Teléfono de emergencia</Label>
+            <Input placeholder="310 000 0000" {...register('contacto_emergencia_telefono')} />
           </div>
         </div>
 

@@ -1,16 +1,20 @@
 import { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Pencil, ClipboardList } from 'lucide-react';
+import { ArrowLeft, Pencil, ClipboardList, Plus, Trash2, MessageCircle, Mail, Phone, X, Download } from 'lucide-react';
 import { useCliente } from '../../hooks/useClientes';
 import { useOrdenes } from '../../hooks/useOrdenes';
+import { useContactos, useCreateContacto, useDeleteContacto } from '../../hooks/useContactos';
 import type { Orden } from '../../types/supabase.types';
 import { getEmpresaConfig } from '../../services/config.service';
 import { formatDate, formatCurrency } from '../../lib/formatters';
+import { downloadCSV } from '../../lib/csv';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { DataTable, type Column } from '../../components/shared/DataTable';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { PageLoader } from '../../components/shared/LoadingSpinner';
 import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { ClienteForm } from './ClienteForm';
 
@@ -18,10 +22,17 @@ export default function ClienteDetallePage() {
   const { id }       = useParams<{ id: string }>();
   const navigate     = useNavigate();
   const { prefijo }  = getEmpresaConfig();
-  const [editOpen, setEditOpen] = useState(false);
+  const [editOpen,       setEditOpen]       = useState(false);
+  const [addingContact,  setAddingContact]  = useState(false);
+  const [cNombre,        setCNombre]        = useState('');
+  const [cEmail,         setCEmail]         = useState('');
+  const [cTelefono,      setCTelefono]      = useState('');
 
   const { data: cliente, isLoading: clienteLoading } = useCliente(id);
   const { data: ordenes = [], isLoading: ordenesLoading } = useOrdenes({ cliente_id: id });
+  const { data: contactos = [] } = useContactos(id);
+  const crearContacto  = useCreateContacto(id ?? '');
+  const borrarContacto = useDeleteContacto(id ?? '');
 
   const stats = useMemo(() => ({
     totalOrdenes:  ordenes.length,
@@ -46,6 +57,19 @@ export default function ClienteDetallePage() {
         </Button>
       </div>
     );
+  }
+
+  function whatsappUrl(tel: string) {
+    const digits = tel.replace(/\D/g, '');
+    const number = digits.startsWith('57') ? digits : `57${digits}`;
+    return `https://wa.me/${number}`;
+  }
+
+  async function handleGuardarContacto() {
+    if (!cNombre.trim() || !cTelefono.trim()) return;
+    await crearContacto.mutateAsync({ nombre: cNombre.trim(), email: cEmail.trim(), telefono: cTelefono.trim() });
+    setCNombre(''); setCEmail(''); setCTelefono('');
+    setAddingContact(false);
   }
 
   const ordenColumns: Column<Orden>[] = [
@@ -235,6 +259,150 @@ export default function ClienteDetallePage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ── CONTACTOS ──────────────────────────────── */}
+      <Card className="mt-5">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Contactos</CardTitle>
+            <div className="flex gap-2">
+              {contactos.length > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => downloadCSV(
+                    `contactos_${cliente.nombre.replace(/\s+/g, '_')}`,
+                    ['Nombre', 'Teléfono', 'Email'],
+                    contactos.map(c => [c.nombre, c.telefono, c.email ?? ''])
+                  )}
+                >
+                  <Download className="h-4 w-4 mr-1" /> CSV
+                </Button>
+              )}
+              {!addingContact && (
+                <Button size="sm" variant="outline" onClick={() => setAddingContact(true)}>
+                  <Plus className="h-4 w-4 mr-1" /> Agregar
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {/* Formulario inline */}
+          {addingContact && (
+            <div className="mb-4 p-4 rounded-lg border border-[#e8734a]/30 bg-orange-50 flex flex-col gap-3">
+              <p className="text-sm font-medium text-gray-700">Nuevo contacto</p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="flex flex-col gap-1">
+                  <Label>Nombre *</Label>
+                  <Input
+                    placeholder="Nombre completo"
+                    value={cNombre}
+                    onChange={e => setCNombre(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label>Teléfono / WhatsApp *</Label>
+                  <Input
+                    placeholder="310 000 0000"
+                    value={cTelefono}
+                    onChange={e => setCTelefono(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label>Correo electrónico</Label>
+                  <Input
+                    type="email"
+                    placeholder="correo@ejemplo.com"
+                    value={cEmail}
+                    onChange={e => setCEmail(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { setAddingContact(false); setCNombre(''); setCEmail(''); setCTelefono(''); }}
+                >
+                  <X className="h-4 w-4 mr-1" /> Cancelar
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={!cNombre.trim() || !cTelefono.trim() || crearContacto.isPending}
+                  onClick={handleGuardarContacto}
+                >
+                  {crearContacto.isPending ? 'Guardando...' : 'Guardar contacto'}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Lista de contactos */}
+          {contactos.length === 0 && !addingContact ? (
+            <p className="text-sm text-gray-400 italic text-center py-6">
+              No hay contactos registrados para este cliente.
+            </p>
+          ) : (
+            <div className="flex flex-col divide-y divide-gray-100">
+              {contactos.map(c => {
+                const iniciales = c.nombre.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+                return (
+                  <div key={c.id} className="flex items-center gap-4 py-3">
+                    {/* Avatar */}
+                    <div className="h-9 w-9 rounded-full bg-[#1a1a2e] text-white flex items-center justify-center text-xs font-bold flex-shrink-0">
+                      {iniciales}
+                    </div>
+
+                    {/* Datos */}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-800 text-sm">{c.nombre}</p>
+                      <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-0.5">
+                        <span className="flex items-center gap-1 text-xs text-gray-500">
+                          <Phone className="h-3 w-3" /> {c.telefono}
+                        </span>
+                        {c.email && (
+                          <span className="flex items-center gap-1 text-xs text-gray-500">
+                            <Mail className="h-3 w-3" /> {c.email}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Acciones */}
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <a
+                        href={whatsappUrl(c.telefono)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium bg-green-500 text-white hover:bg-green-600 transition-colors"
+                      >
+                        <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+                      </a>
+                      {c.email && (
+                        <a
+                          href={`mailto:${c.email}`}
+                          className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+                        >
+                          <Mail className="h-3.5 w-3.5" /> Email
+                        </a>
+                      )}
+                      <button
+                        onClick={() => borrarContacto.mutate(c.id)}
+                        disabled={borrarContacto.isPending}
+                        className="ml-1 p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                        title="Eliminar contacto"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Historial de órdenes */}
       <Card className="mt-5">
