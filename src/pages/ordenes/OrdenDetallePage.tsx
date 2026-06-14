@@ -3,13 +3,15 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { pdf } from '@react-pdf/renderer';
 import { saveAs } from 'file-saver';
-import { Download, ArrowLeft, Truck, CreditCard, Ban, RefreshCw } from 'lucide-react';
+import { Download, ArrowLeft, Truck, CreditCard, Ban, RefreshCw, Mail } from 'lucide-react';
 import { useOrden, useUpdateOrdenEstado } from '../../hooks/useOrdenes';
 import { usePermissions } from '../../hooks/useAuth';
+import { useCliente } from '../../hooks/useClientes';
 import { updateOrdenPdfUrl, uploadOrdenPDF, type OrdenConItems } from '../../services/ordenes.service';
 import type { Orden } from '../../types/supabase.types';
 import { getEmpresaConfig } from '../../services/config.service';
 import { formatDate, formatCurrency } from '../../lib/formatters';
+import { abrirMailto } from '../../lib/email';
 import { OrdenPDF } from '../../pdf/OrdenPDF';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatusBadge } from '../../components/shared/StatusBadge';
@@ -35,8 +37,9 @@ export default function OrdenDetallePage() {
   const { isAdmin }  = usePermissions();
 
   const { data, isLoading, error } = useOrden(id);
-  const updateEstado = useUpdateOrdenEstado();
-  const { prefijo }  = getEmpresaConfig();
+  const updateEstado              = useUpdateOrdenEstado();
+  const { prefijo, nombre }       = getEmpresaConfig();
+  const { data: cliente }         = useCliente(data?.cliente_id ?? undefined);
 
   const [showPagoModal,    setShowPagoModal]    = useState(false);
   const [showEntregaModal, setShowEntregaModal] = useState(false);
@@ -93,6 +96,20 @@ export default function OrdenDetallePage() {
     }
   }
 
+  async function handleEnviarEmail() {
+    await handleDownloadPDF();
+    abrirMailto({
+      to:      cliente?.email ?? '',
+      subject: `Orden de servicio ${noDocLabel} — ${nombre}`,
+      body:
+        `Estimado/a ${orden.cliente_nombre},\n\n` +
+        `Adjunto encontrará la orden de servicio ${noDocLabel}` +
+        ` por un valor de ${formatCurrency(orden.valor + orden.iva)}.\n\n` +
+        `Quedamos atentos a cualquier inquietud.\n\n` +
+        `${nombre}`,
+    });
+  }
+
   async function handleCambiarEstado() {
     if (!nuevoEstado) return;
     await updateEstado.mutateAsync({ id: orden.id, estado: nuevoEstado });
@@ -141,7 +158,10 @@ export default function OrdenDetallePage() {
             </Button>
             <Button variant="outline" onClick={handleDownloadPDF} disabled={pdfLoading}>
               <Download className="h-4 w-4 mr-1" />
-              {pdfLoading ? 'Generando...' : 'Descargar PDF'}
+              {pdfLoading ? 'Generando...' : 'PDF'}
+            </Button>
+            <Button variant="outline" onClick={handleEnviarEmail} disabled={pdfLoading}>
+              <Mail className="h-4 w-4 mr-1" /> Enviar por email
             </Button>
           </div>
         }

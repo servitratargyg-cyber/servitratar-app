@@ -1,11 +1,14 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Download, CheckCircle, XCircle, Send } from 'lucide-react';
+import { ArrowLeft, Download, CheckCircle, XCircle, Send, Mail } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import { pdf } from '@react-pdf/renderer';
 import { useCotizacion, useUpdateCotizacionEstado, useConvertirAOrden } from '../../hooks/useCotizaciones';
 import { useAuth, usePermissions } from '../../hooks/useAuth';
+import { useCliente } from '../../hooks/useClientes';
 import type { CotizacionConItems } from '../../services/cotizaciones.service';
+import { getEmpresaConfig } from '../../services/config.service';
 import { formatDate, formatCurrency } from '../../lib/formatters';
+import { abrirMailto } from '../../lib/email';
 import { CotizacionPDF } from '../../pdf/CotizacionPDF';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { StatusBadge } from '../../components/shared/StatusBadge';
@@ -22,6 +25,7 @@ export default function CotizacionDetallePage() {
   const { data, isLoading, error } = useCotizacion(id);
   const updateEstado  = useUpdateCotizacionEstado();
   const convertirAOS  = useConvertirAOrden(user?.id ?? null);
+  const { data: cliente } = useCliente(data?.cliente_id ?? undefined);
 
   if (isLoading) return <PageLoader />;
 
@@ -43,6 +47,21 @@ export default function CotizacionDetallePage() {
       <CotizacionPDF cotizacion={cotizacion} items={cotizacion.items} />
     ).toBlob();
     saveAs(blob, `${cotizacion.numero}.pdf`);
+  }
+
+  async function enviarPorEmail() {
+    await descargarPDF();
+    const { nombre } = getEmpresaConfig();
+    abrirMailto({
+      to:      cliente?.email ?? '',
+      subject: `Cotización ${cotizacion.numero} — ${nombre}`,
+      body:
+        `Estimado/a ${cotizacion.cliente_nombre},\n\n` +
+        `Adjunto encontrará la cotización ${cotizacion.numero} por un valor de ` +
+        `${formatCurrency(cotizacion.total)}.\n\n` +
+        `Quedamos atentos a cualquier inquietud.\n\n` +
+        `${nombre}`,
+    });
   }
 
   async function handleConvertir() {
@@ -69,7 +88,10 @@ export default function CotizacionDetallePage() {
               <ArrowLeft className="h-4 w-4 mr-1" /> Volver
             </Button>
             <Button variant="outline" onClick={descargarPDF}>
-              <Download className="h-4 w-4 mr-1" /> Descargar PDF
+              <Download className="h-4 w-4 mr-1" /> PDF
+            </Button>
+            <Button variant="outline" onClick={enviarPorEmail}>
+              <Mail className="h-4 w-4 mr-1" /> Enviar por email
             </Button>
           </div>
         }
