@@ -7,11 +7,12 @@ export interface OrdenConItems extends Orden {
 }
 
 export interface OrdenesFilters {
-  estado?:      string;
-  tipo_doc?:    string;
-  cliente_id?:  string;
-  fecha_desde?: string;
-  fecha_hasta?: string;
+  estado?:         string;
+  tipo_doc?:       string;
+  cliente_id?:     string;
+  cliente_nombre?: string;
+  fecha_desde?:    string;
+  fecha_hasta?:    string;
 }
 
 async function getNextNoDoc(): Promise<number> {
@@ -32,11 +33,20 @@ export async function getOrdenes(filters: OrdenesFilters = {}) {
       .select('*')
       .order('no_doc', { ascending: false });
 
-    if (filters.estado)      query = query.eq('estado',     filters.estado);
-    if (filters.tipo_doc)    query = query.eq('tipo_doc',   filters.tipo_doc);
-    if (filters.cliente_id)  query = query.eq('cliente_id', filters.cliente_id);
-    if (filters.fecha_desde) query = query.gte('fecha',     filters.fecha_desde);
-    if (filters.fecha_hasta) query = query.lte('fecha',     filters.fecha_hasta);
+    if (filters.estado)      query = query.eq('estado',   filters.estado);
+    if (filters.tipo_doc)    query = query.eq('tipo_doc', filters.tipo_doc);
+    if (filters.cliente_id) {
+      // Fallback: include orders where cliente_id matches OR (old records with null cliente_id but matching nombre)
+      if (filters.cliente_nombre) {
+        query = query.or(
+          `cliente_id.eq.${filters.cliente_id},and(cliente_id.is.null,cliente_nombre.eq."${filters.cliente_nombre.replace(/"/g, '')}")`
+        );
+      } else {
+        query = query.eq('cliente_id', filters.cliente_id);
+      }
+    }
+    if (filters.fecha_desde) query = query.gte('fecha', filters.fecha_desde);
+    if (filters.fecha_hasta) query = query.lte('fecha', filters.fecha_hasta);
 
     const { data, error } = await query;
     return { data: (data ?? []) as Orden[], error };

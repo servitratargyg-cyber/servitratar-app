@@ -27,9 +27,22 @@ export default function ClienteDetallePage() {
   const [cNombre,        setCNombre]        = useState('');
   const [cEmail,         setCEmail]         = useState('');
   const [cTelefono,      setCTelefono]      = useState('');
+  const hoy     = new Date();
+  const primerDiaMes = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-01`;
+  const ultimoDiaMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).toISOString().split('T')[0];
+
+  const [fechaDesde,     setFechaDesde]     = useState(primerDiaMes);
+  const [fechaHasta,     setFechaHasta]     = useState(ultimoDiaMes);
+  const [estadoFiltro,   setEstadoFiltro]   = useState('');
 
   const { data: cliente, isLoading: clienteLoading } = useCliente(id);
-  const { data: ordenes = [], isLoading: ordenesLoading } = useOrdenes({ cliente_id: id });
+  const { data: ordenes = [], isLoading: ordenesLoading } = useOrdenes({
+    cliente_id:     id,
+    cliente_nombre: cliente?.nombre,
+    fecha_desde:    fechaDesde    || undefined,
+    fecha_hasta:    fechaHasta    || undefined,
+    estado:         estadoFiltro  || undefined,
+  });
   const { data: contactos = [] } = useContactos(id);
   const crearContacto  = useCreateContacto(id ?? '');
   const borrarContacto = useDeleteContacto(id ?? '');
@@ -42,6 +55,9 @@ export default function ClienteDetallePage() {
       .reduce((s, o) => s + o.valor + o.iva, 0),
     enCartera:     ordenes
       .filter(o => o.estado === 'FE REGISTRADA')
+      .reduce((s, o) => s + o.valor + o.iva, 0),
+    porCobrar:     ordenes
+      .filter(o => o.estado === 'ENTREGADA')
       .reduce((s, o) => s + o.valor + o.iva, 0),
     pendientes:    ordenes.filter(o => ['RECIBIDA', 'EN PROCESO', 'ENTREGADA'].includes(o.estado)).length,
   }), [ordenes]);
@@ -130,11 +146,12 @@ export default function ClienteDetallePage() {
       />
 
       {/* ── KPI CARDS ──────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-4 mb-5 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 mb-5 sm:grid-cols-5">
         {[
           { label: 'Total órdenes',   value: stats.totalOrdenes.toString(),        color: 'text-gray-800' },
           { label: 'Valor total',     value: formatCurrency(stats.valorTotal),      color: 'text-gray-800' },
           { label: 'Cobrado',         value: formatCurrency(stats.valorCobrado),    color: 'text-green-600' },
+          { label: 'Por cobrar',      value: formatCurrency(stats.porCobrar),       color: 'text-blue-600' },
           { label: 'En cartera',      value: formatCurrency(stats.enCartera),       color: 'text-orange-600' },
         ].map(kpi => (
           <Card key={kpi.label}>
@@ -406,14 +423,95 @@ export default function ClienteDetallePage() {
 
       {/* Historial de órdenes */}
       <Card className="mt-5">
-        <CardHeader><CardTitle>Historial de órdenes</CardTitle></CardHeader>
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <CardTitle>
+              Historial de órdenes
+              {ordenes.length > 0 && (
+                <span className="ml-2 text-sm font-normal text-gray-400">
+                  ({ordenes.length} {ordenes.length === 1 ? 'orden' : 'órdenes'})
+                </span>
+              )}
+            </CardTitle>
+            {ordenes.length > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => downloadCSV(
+                  `ordenes_${cliente.nombre.replace(/\s+/g, '_')}${fechaDesde ? `_desde_${fechaDesde}` : ''}${fechaHasta ? `_hasta_${fechaHasta}` : ''}`,
+                  ['No. Orden', 'Fecha', 'Tipo', 'Modo cobro', 'Subtotal', 'IVA', 'Total', 'Estado'],
+                  ordenes.map(o => [
+                    `${prefijo}${o.no_doc}`,
+                    o.fecha,
+                    o.tipo_doc,
+                    o.modo_cobro,
+                    o.valor,
+                    o.iva,
+                    o.valor + o.iva,
+                    o.estado,
+                  ])
+                )}
+              >
+                <Download className="h-4 w-4 mr-1" /> CSV
+              </Button>
+            )}
+          </div>
+
+          {/* Filtros */}
+          <div className="flex flex-wrap items-end gap-3 mt-3">
+            <div className="flex flex-col gap-1">
+              <Label className="text-xs">Desde</Label>
+              <Input
+                type="date"
+                value={fechaDesde}
+                onChange={e => setFechaDesde(e.target.value)}
+                className="h-8 text-sm w-36"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label className="text-xs">Hasta</Label>
+              <Input
+                type="date"
+                value={fechaHasta}
+                onChange={e => setFechaHasta(e.target.value)}
+                className="h-8 text-sm w-36"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label className="text-xs">Estado</Label>
+              <select
+                value={estadoFiltro}
+                onChange={e => setEstadoFiltro(e.target.value)}
+                className="h-8 rounded-md border border-gray-200 bg-white px-2 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-[#e8734a]"
+              >
+                <option value="">Todos</option>
+                <option value="RECIBIDA">Recibida</option>
+                <option value="EN PROCESO">En proceso</option>
+                <option value="ENTREGADA">Entregada</option>
+                <option value="FE REGISTRADA">FE registrada</option>
+                <option value="PAGADA">Pagada</option>
+                <option value="ANULADA">Anulada</option>
+              </select>
+            </div>
+            {(fechaDesde || fechaHasta || estadoFiltro) && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs"
+                onClick={() => { setFechaDesde(primerDiaMes); setFechaHasta(ultimoDiaMes); setEstadoFiltro(''); }}
+              >
+                Limpiar filtros
+              </Button>
+            )}
+          </div>
+        </CardHeader>
         <CardContent>
           <DataTable
             columns={ordenColumns}
             data={ordenes}
             loading={ordenesLoading}
             pageSize={10}
-            emptyMessage="Este cliente no tiene órdenes aún"
+            emptyMessage="No hay órdenes para el rango seleccionado"
             onRowClick={row => navigate(`/ordenes/${row.id}`)}
           />
         </CardContent>
