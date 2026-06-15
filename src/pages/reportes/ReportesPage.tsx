@@ -1,26 +1,26 @@
 import { useState } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, PieChart, Pie, Cell, Legend,
+  ResponsiveContainer, PieChart, Pie, Cell, Legend, LabelList,
 } from 'recharts';
-import { TrendingUp, Wallet, Users, Package, Download } from 'lucide-react';
+import { TrendingUp, Wallet, Users, Package, Download, Search } from 'lucide-react';
 import {
   useReporteVentas,
   useReporteCartera,
   useReporteNomina,
   useReporteInventario,
 } from '../../hooks/useReportes';
-import { formatCurrency, formatDate } from '../../lib/formatters';
+import { formatCurrency, formatDate, getMesNombre } from '../../lib/formatters';
 import { downloadCSV } from '../../lib/csv';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { PageLoader } from '../../components/shared/LoadingSpinner';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Select } from '../../components/ui/select';
 import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
 
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = [CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2];
-
 const PIE_COLORS = ['#1a1a2e', '#e8734a', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444'];
 
 // ── Tooltip helpers ───────────────────────────────────────
@@ -42,13 +42,20 @@ function CurrencyTooltip({ active, payload, label }: any) {
   );
 }
 
+function formatAxis(v: number) {
+  if (v >= 1e6) return `$${(v / 1e6).toFixed(1)}M`;
+  if (v >= 1e3) return `$${(v / 1e3).toFixed(0)}K`;
+  return `$${v}`;
+}
 
-function KpiMini({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function KpiMini({ label, value, sub, valueColor }: {
+  label: string; value: string; sub?: string; valueColor?: string;
+}) {
   return (
     <Card>
       <CardContent className="pt-4">
         <p className="text-xs text-gray-500 mb-1">{label}</p>
-        <p className="text-lg font-bold tabular-nums text-[#1a1a2e]">{value}</p>
+        <p className={`text-lg font-bold tabular-nums ${valueColor ?? 'text-[#1a1a2e]'}`}>{value}</p>
         {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
       </CardContent>
     </Card>
@@ -62,16 +69,20 @@ const TABS = [
   { id: 'nomina',     label: 'Nómina',     icon: Users      },
   { id: 'inventario', label: 'Inventario', icon: Package    },
 ] as const;
-
 type TabId = typeof TABS[number]['id'];
 
 // ── Reporte Ventas ────────────────────────────────────────
 function ReporteVentas() {
   const [anio, setAnio] = useState(CURRENT_YEAR);
-  const { mensual, topClientes, totalFacturado, totalCobrado, ticketPromedio, totalOrdenes, activas, isLoading } = useReporteVentas(anio);
+  const [mes,  setMes]  = useState(0);
+
+  const {
+    mensual, topClientes, totalFacturado, totalCobrado, ticketPromedio,
+    totalOrdenes, activas, crecimiento, totalFacturadoAnterior, isLoading,
+  } = useReporteVentas(anio, mes);
 
   function exportarOrdenes() {
-    downloadCSV(`ventas_${anio}`, [
+    downloadCSV(`ventas_${anio}${mes > 0 ? `_${getMesNombre(mes)}` : ''}`, [
       'No. Orden', 'Fecha', 'Cliente', 'Tipo', 'Modo Cobro', 'Subtotal', 'IVA', 'Total', 'Estado',
     ], (activas ?? []).map(o => [
       o.no_doc, o.fecha, o.cliente_nombre, o.tipo_doc, o.modo_cobro,
@@ -87,11 +98,25 @@ function ReporteVentas() {
 
   if (isLoading) return <PageLoader />;
 
+  const crecColor = crecimiento === null ? 'text-gray-400'
+    : crecimiento >= 0 ? 'text-green-600' : 'text-red-500';
+  const crecLabel = crecimiento === null ? '—'
+    : `${crecimiento >= 0 ? '+' : ''}${crecimiento.toFixed(1)}%`;
+  const periodoLabel = mes > 0 ? getMesNombre(mes).slice(0, 3) : '';
+
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex items-center gap-3">
-        <Select value={anio} onChange={e => setAnio(Number(e.target.value))} className="w-28">
+
+      {/* Controles */}
+      <div className="flex flex-wrap items-center gap-3">
+        <Select value={anio} onChange={e => setAnio(Number(e.target.value))} className="w-24">
           {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+        </Select>
+        <Select value={mes} onChange={e => setMes(Number(e.target.value))} className="w-36">
+          <option value={0}>Todo el año</option>
+          {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+            <option key={m} value={m}>{getMesNombre(m)}</option>
+          ))}
         </Select>
         <div className="flex-1" />
         <Button variant="outline" size="sm" onClick={exportarMensual}>
@@ -102,64 +127,106 @@ function ReporteVentas() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      {/* KPIs */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
         <KpiMini label="Total órdenes"   value={totalOrdenes.toString()} />
         <KpiMini label="Total facturado" value={formatCurrency(totalFacturado)} />
-        <KpiMini label="Total cobrado"   value={formatCurrency(totalCobrado)} sub={`${totalFacturado > 0 ? Math.round(totalCobrado / totalFacturado * 100) : 0}% cobrado`} />
+        <KpiMini
+          label="Total cobrado"
+          value={formatCurrency(totalCobrado)}
+          sub={`${totalFacturado > 0 ? Math.round(totalCobrado / totalFacturado * 100) : 0}% cobrado`}
+        />
         <KpiMini label="Ticket promedio" value={formatCurrency(ticketPromedio)} />
+        <KpiMini
+          label={`vs ${anio - 1}${periodoLabel ? ` (${periodoLabel})` : ''}`}
+          value={crecLabel}
+          sub={totalFacturadoAnterior > 0 ? `Ant: ${formatCurrency(totalFacturadoAnterior)}` : 'Sin datos anteriores'}
+          valueColor={crecColor}
+        />
       </div>
 
+      {/* Gráfica mensual — siempre muestra el año completo */}
       <Card>
-        <CardHeader><CardTitle>Facturado vs Cobrado por mes — {anio}</CardTitle></CardHeader>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Facturado vs Cobrado por mes — {anio}</CardTitle>
+            {mes > 0 && (
+              <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-0.5">
+                KPIs filtrados: {getMesNombre(mes)}
+              </span>
+            )}
+          </div>
+        </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={mensual} barGap={4}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="mes" tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} />
+              <XAxis
+                dataKey="mes"
+                tick={({ x, y, payload, index }) => {
+                  const isActive = mes === 0 || mes === index + 1;
+                  return (
+                    <text x={x} y={y + 12} textAnchor="middle" fontSize={11}
+                      fill={isActive ? '#1a1a2e' : '#d1d5db'}
+                      fontWeight={isActive && mes > 0 ? 700 : 400}>
+                      {payload.value}
+                    </text>
+                  );
+                }}
+                axisLine={false} tickLine={false}
+              />
               <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} axisLine={false} tickLine={false} width={64}
-                tickFormatter={v => v >= 1e6 ? `$${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v/1e3).toFixed(0)}K` : `$${v}`}
+                tickFormatter={formatAxis}
               />
               <Tooltip content={<CurrencyTooltip />} />
               <Legend wrapperStyle={{ fontSize: '12px' }} iconType="square" iconSize={10} />
-              <Bar dataKey="Facturado" fill="#1a1a2e" radius={[3,3,0,0]} maxBarSize={28} />
-              <Bar dataKey="Cobrado"   fill="#e8734a" radius={[3,3,0,0]} maxBarSize={28} />
+              <Bar dataKey="Facturado" fill="#1a1a2e" radius={[3,3,0,0]} maxBarSize={28}
+                opacity={1}
+              />
+              <Bar dataKey="Cobrado" fill="#e8734a" radius={[3,3,0,0]} maxBarSize={28} />
             </BarChart>
           </ResponsiveContainer>
         </CardContent>
       </Card>
 
+      {/* Top clientes — gráfica horizontal */}
       <Card>
-        <CardHeader><CardTitle>Top clientes por valor facturado — {anio}</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>
+            Top clientes — {mes > 0 ? getMesNombre(mes) : 'año'} {anio}
+          </CardTitle>
+        </CardHeader>
         <CardContent>
           {topClientes.length === 0 ? (
-            <p className="text-sm text-gray-400 py-8 text-center">Sin datos para este año</p>
+            <p className="text-sm text-gray-400 py-8 text-center">Sin datos para este período</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-100 text-xs text-gray-400 uppercase">
-                    <th className="pb-2 text-left font-medium">#</th>
-                    <th className="pb-2 text-left font-medium">Cliente</th>
-                    <th className="pb-2 text-right font-medium">Órdenes</th>
-                    <th className="pb-2 text-right font-medium">Valor total</th>
-                    <th className="pb-2 text-right font-medium">% del total</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {topClientes.map((c, i) => (
-                    <tr key={c.nombre} className="hover:bg-gray-50">
-                      <td className="py-2.5 text-gray-400 text-xs">{i + 1}</td>
-                      <td className="py-2.5 font-medium">{c.nombre}</td>
-                      <td className="py-2.5 text-right tabular-nums">{c.ordenes}</td>
-                      <td className="py-2.5 text-right tabular-nums font-semibold">{formatCurrency(c.valor)}</td>
-                      <td className="py-2.5 text-right tabular-nums text-gray-500">
-                        {totalFacturado > 0 ? `${((c.valor / totalFacturado) * 100).toFixed(1)}%` : '—'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <ResponsiveContainer width="100%" height={Math.max(topClientes.length * 44 + 20, 180)}>
+              <BarChart data={topClientes} layout="vertical" margin={{ left: 0, right: 70, top: 4, bottom: 4 }}>
+                <XAxis
+                  type="number"
+                  tick={{ fontSize: 10, fill: '#6b7280' }}
+                  axisLine={false} tickLine={false}
+                  tickFormatter={formatAxis}
+                />
+                <YAxis
+                  dataKey="nombre"
+                  type="category"
+                  tick={{ fontSize: 11, fill: '#374151' }}
+                  axisLine={false} tickLine={false}
+                  width={150}
+                />
+                <Tooltip content={<CurrencyTooltip />} />
+                <Bar dataKey="valor" name="Facturado" fill="#e8734a" radius={[0,3,3,0]} maxBarSize={22}>
+                  <LabelList
+                    dataKey="valor"
+                    position="right"
+                    fontSize={10}
+                    fill="#6b7280"
+                    formatter={(v: number) => formatAxis(v)}
+                  />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           )}
         </CardContent>
       </Card>
@@ -169,7 +236,12 @@ function ReporteVentas() {
 
 // ── Reporte Cartera ───────────────────────────────────────
 function ReporteCartera() {
+  const [buscarCliente, setBuscarCliente] = useState('');
   const { buckets, porCliente, conDias, totalCartera, enRiesgo, isLoading } = useReporteCartera();
+
+  const porClienteFiltrado = buscarCliente
+    ? porCliente.filter(c => c.nombre.toLowerCase().includes(buscarCliente.toLowerCase()))
+    : porCliente;
 
   function exportarCartera() {
     downloadCSV('cartera_pendiente', [
@@ -197,11 +269,14 @@ function ReporteCartera() {
           <Download className="h-3.5 w-3.5 mr-1" /> Cartera detalle CSV
         </Button>
       </div>
+
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <KpiMini label="Total en cartera" value={formatCurrency(totalCartera)} />
-        <KpiMini label="En riesgo (> 60d)" value={formatCurrency(enRiesgo)} sub={totalCartera > 0 ? `${Math.round(enRiesgo / totalCartera * 100)}% del total` : ''} />
+        <KpiMini label="Total en cartera"  value={formatCurrency(totalCartera)} />
+        <KpiMini label="En riesgo (> 60d)" value={formatCurrency(enRiesgo)}
+          sub={totalCartera > 0 ? `${Math.round(enRiesgo / totalCartera * 100)}% del total` : ''}
+        />
         <KpiMini label="Clientes con deuda" value={porCliente.length.toString()} />
-        <KpiMini label="0–30 días (sano)" value={formatCurrency(buckets[0]?.valor ?? 0)} />
+        <KpiMini label="0–30 días (sano)"   value={formatCurrency(buckets[0]?.valor ?? 0)} />
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
@@ -212,9 +287,11 @@ function ReporteCartera() {
               <BarChart data={buckets} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
                 <XAxis type="number" tick={{ fontSize: 10, fill: '#6b7280' }} axisLine={false} tickLine={false}
-                  tickFormatter={v => v >= 1e6 ? `$${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v/1e3).toFixed(0)}K` : `$${v}`}
+                  tickFormatter={formatAxis}
                 />
-                <YAxis dataKey="label" type="category" tick={{ fontSize: 11, fill: '#374151' }} axisLine={false} tickLine={false} width={80} />
+                <YAxis dataKey="label" type="category" tick={{ fontSize: 11, fill: '#374151' }}
+                  axisLine={false} tickLine={false} width={80}
+                />
                 <Tooltip content={<CurrencyTooltip />} />
                 <Bar dataKey="valor" name="Valor" radius={[0,3,3,0]} maxBarSize={32}>
                   {buckets.map((b, i) => <Cell key={i} fill={b.color} />)}
@@ -241,11 +318,27 @@ function ReporteCartera() {
         </Card>
       </div>
 
+      {/* Cartera por cliente con búsqueda */}
       <Card>
-        <CardHeader><CardTitle>Cartera por cliente</CardTitle></CardHeader>
+        <CardHeader>
+          <div className="flex items-center justify-between gap-4">
+            <CardTitle>Cartera por cliente</CardTitle>
+            <div className="relative w-56">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+              <Input
+                placeholder="Buscar cliente..."
+                value={buscarCliente}
+                onChange={e => setBuscarCliente(e.target.value)}
+                className="pl-8 h-8 text-sm"
+              />
+            </div>
+          </div>
+        </CardHeader>
         <CardContent>
-          {porCliente.length === 0 ? (
-            <p className="text-sm text-gray-400 py-8 text-center">Sin facturas pendientes</p>
+          {porClienteFiltrado.length === 0 ? (
+            <p className="text-sm text-gray-400 py-8 text-center">
+              {buscarCliente ? 'Sin resultados para esa búsqueda' : 'Sin facturas pendientes'}
+            </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -258,7 +351,7 @@ function ReporteCartera() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {porCliente.map(c => (
+                  {porClienteFiltrado.map(c => (
                     <tr key={c.nombre} className="hover:bg-gray-50">
                       <td className="py-2.5 font-medium">{c.nombre}</td>
                       <td className="py-2.5 text-right">{c.facturas}</td>
@@ -271,6 +364,18 @@ function ReporteCartera() {
                     </tr>
                   ))}
                 </tbody>
+                {buscarCliente && porClienteFiltrado.length > 0 && (
+                  <tfoot>
+                    <tr className="border-t-2 border-gray-200 font-semibold text-sm">
+                      <td className="pt-2.5">Subtotal filtrado</td>
+                      <td className="pt-2.5 text-right">{porClienteFiltrado.reduce((s, c) => s + c.facturas, 0)}</td>
+                      <td />
+                      <td className="pt-2.5 text-right tabular-nums text-[#e8734a]">
+                        {formatCurrency(porClienteFiltrado.reduce((s, c) => s + c.valor, 0))}
+                      </td>
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             </div>
           )}
@@ -282,8 +387,14 @@ function ReporteCartera() {
 
 // ── Reporte Nómina ────────────────────────────────────────
 function ReporteNomina() {
-  const [anio, setAnio] = useState(CURRENT_YEAR);
+  const [anio,      setAnio]      = useState(CURRENT_YEAR);
+  const [empFiltro, setEmpFiltro] = useState('');
+
   const { mensual, porEmpleado, totalDevengado, totalNeto, totalCosto, nominas, isLoading } = useReporteNomina(anio);
+
+  const porEmpleadoFiltrado = empFiltro
+    ? porEmpleado.filter(e => e.nombre === empFiltro)
+    : porEmpleado;
 
   function exportarNominas() {
     downloadCSV(`nomina_${anio}`, [
@@ -311,8 +422,10 @@ function ReporteNomina() {
       </div>
 
       <div className="grid grid-cols-3 gap-4">
-        <KpiMini label="Total devengado" value={formatCurrency(totalDevengado)} />
-        <KpiMini label="Total neto pagado" value={formatCurrency(totalNeto)} sub={`Deducciones: ${formatCurrency(totalDevengado - totalNeto)}`} />
+        <KpiMini label="Total devengado"       value={formatCurrency(totalDevengado)} />
+        <KpiMini label="Total neto pagado"     value={formatCurrency(totalNeto)}
+          sub={`Deducciones: ${formatCurrency(totalDevengado - totalNeto)}`}
+        />
         <KpiMini label="Costo empresa adicional" value={formatCurrency(totalCosto)} sub="Aportes + prestaciones" />
       </div>
 
@@ -324,7 +437,7 @@ function ReporteNomina() {
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis dataKey="mes" tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} axisLine={false} tickLine={false} width={64}
-                tickFormatter={v => v >= 1e6 ? `$${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v/1e3).toFixed(0)}K` : `$${v}`}
+                tickFormatter={formatAxis}
               />
               <Tooltip content={<CurrencyTooltip />} />
               <Legend wrapperStyle={{ fontSize: '12px' }} iconType="square" iconSize={10} />
@@ -335,10 +448,25 @@ function ReporteNomina() {
         </CardContent>
       </Card>
 
+      {/* Resumen por empleado con filtro */}
       <Card>
-        <CardHeader><CardTitle>Resumen por empleado — {anio}</CardTitle></CardHeader>
+        <CardHeader>
+          <div className="flex items-center justify-between gap-4">
+            <CardTitle>Resumen por empleado — {anio}</CardTitle>
+            <Select
+              value={empFiltro}
+              onChange={e => setEmpFiltro(e.target.value)}
+              className="w-52 text-sm h-8"
+            >
+              <option value="">Todos los empleados</option>
+              {porEmpleado.map(e => (
+                <option key={e.nombre} value={e.nombre}>{e.nombre}</option>
+              ))}
+            </Select>
+          </div>
+        </CardHeader>
         <CardContent>
-          {porEmpleado.length === 0 ? (
+          {porEmpleadoFiltrado.length === 0 ? (
             <p className="text-sm text-gray-400 py-8 text-center">Sin nóminas liquidadas para {anio}</p>
           ) : (
             <div className="overflow-x-auto">
@@ -353,7 +481,7 @@ function ReporteNomina() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {porEmpleado.map(e => (
+                  {porEmpleadoFiltrado.map(e => (
                     <tr key={e.nombre} className="hover:bg-gray-50">
                       <td className="py-2.5 font-medium">{e.nombre || '—'}</td>
                       <td className="py-2.5 text-right">{e.meses}</td>
@@ -365,11 +493,17 @@ function ReporteNomina() {
                 </tbody>
                 <tfoot>
                   <tr className="border-t-2 border-gray-200 font-semibold">
-                    <td className="pt-2.5">Total</td>
+                    <td className="pt-2.5">{empFiltro ? empFiltro : 'Total'}</td>
                     <td />
-                    <td className="pt-2.5 text-right tabular-nums">{formatCurrency(totalDevengado)}</td>
-                    <td className="pt-2.5 text-right tabular-nums text-[#e8734a]">{formatCurrency(totalNeto)}</td>
-                    <td className="pt-2.5 text-right tabular-nums text-gray-500">{formatCurrency(totalCosto)}</td>
+                    <td className="pt-2.5 text-right tabular-nums">
+                      {formatCurrency(porEmpleadoFiltrado.reduce((s, e) => s + e.devengado, 0))}
+                    </td>
+                    <td className="pt-2.5 text-right tabular-nums text-[#e8734a]">
+                      {formatCurrency(porEmpleadoFiltrado.reduce((s, e) => s + e.neto, 0))}
+                    </td>
+                    <td className="pt-2.5 text-right tabular-nums text-gray-500">
+                      {formatCurrency(porEmpleadoFiltrado.reduce((s, e) => s + e.costoEmpresa, 0))}
+                    </td>
                   </tr>
                 </tfoot>
               </table>
@@ -407,8 +541,13 @@ function ReporteInventario() {
       </div>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <KpiMini label="Ítems activos"    value={activos.length.toString()} />
-        <KpiMini label="Stock bajo"       value={stockBajo.length.toString()} sub={stockBajo.length > 0 ? 'Requieren reposición' : 'Todo en orden'} />
-        <KpiMini label="Sin stock"        value={sinStock.length.toString()} sub={sinStock.length > 0 ? 'Crítico' : ''} />
+        <KpiMini label="Stock bajo"       value={stockBajo.length.toString()}
+          sub={stockBajo.length > 0 ? 'Requieren reposición' : 'Todo en orden'}
+        />
+        <KpiMini label="Sin stock"        value={sinStock.length.toString()}
+          sub={sinStock.length > 0 ? 'Crítico' : ''}
+          valueColor={sinStock.length > 0 ? 'text-red-600' : 'text-[#1a1a2e]'}
+        />
         <KpiMini label="Valor inventario" value={formatCurrency(valorTotal)} />
       </div>
 
@@ -492,7 +631,6 @@ export default function ReportesPage() {
         breadcrumbs={[{ label: 'Reportes' }]}
       />
 
-      {/* Tabs */}
       <div className="flex gap-1 mb-6 border-b border-gray-200">
         {TABS.map(tab => {
           const Icon = tab.icon;

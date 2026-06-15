@@ -6,27 +6,43 @@ import { useInventario } from './useInventario';
 import { getMesNombre } from '../lib/formatters';
 
 // ── Ventas ────────────────────────────────────────────────
-export function useReporteVentas(anio: number) {
+export function useReporteVentas(anio: number, mes: number = 0) {
   const { data: ordenes = [], isLoading } = useOrdenes();
 
   const data = useMemo(() => {
-    const activas = ordenes.filter(o =>
+    const activasAnio = ordenes.filter(o =>
       o.estado !== 'ANULADA' &&
       new Date(o.fecha).getFullYear() === anio
     );
 
-    // Mensual
+    // Apply month filter for KPIs and top clients
+    const activas = mes > 0
+      ? activasAnio.filter(o => new Date(o.fecha).getMonth() + 1 === mes)
+      : activasAnio;
+
+    // Comparison: same period, previous year
+    const activasAnterior = ordenes.filter(o => {
+      if (o.estado === 'ANULADA') return false;
+      const d = new Date(o.fecha);
+      if (d.getFullYear() !== anio - 1) return false;
+      if (mes > 0 && d.getMonth() + 1 !== mes) return false;
+      return true;
+    });
+    const totalFacturadoAnterior = activasAnterior.reduce((s, o) => s + o.valor + o.iva, 0);
+
+    // Monthly chart always shows the full year for context
     const mensual = Array.from({ length: 12 }, (_, i) => {
-      const mes = activas.filter(o => new Date(o.fecha).getMonth() === i);
+      const m = activasAnio.filter(o => new Date(o.fecha).getMonth() === i);
       return {
-        mes:        getMesNombre(i + 1).slice(0, 3),
-        Facturado:  mes.reduce((s, o) => s + o.valor + o.iva, 0),
-        Cobrado:    mes.filter(o => o.estado === 'PAGADA').reduce((s, o) => s + o.valor + o.iva, 0),
-        ordenes:    mes.length,
+        mes:       getMesNombre(i + 1).slice(0, 3),
+        Facturado: m.reduce((s, o) => s + o.valor + o.iva, 0),
+        Cobrado:   m.filter(o => o.estado === 'PAGADA').reduce((s, o) => s + o.valor + o.iva, 0),
+        ordenes:   m.length,
+        highlight: mes === 0 || mes === i + 1,
       };
     });
 
-    // Top clientes
+    // Top clientes filtered by period
     const byCliente: Record<string, { nombre: string; valor: number; ordenes: number }> = {};
     activas.forEach(o => {
       if (!byCliente[o.cliente_nombre]) {
@@ -39,13 +55,18 @@ export function useReporteVentas(anio: number) {
       .sort((a, b) => b.valor - a.valor)
       .slice(0, 10);
 
-    // Resumen
     const totalFacturado = activas.reduce((s, o) => s + o.valor + o.iva, 0);
     const totalCobrado   = activas.filter(o => o.estado === 'PAGADA').reduce((s, o) => s + o.valor + o.iva, 0);
     const ticketPromedio = activas.length > 0 ? totalFacturado / activas.length : 0;
+    const crecimiento    = totalFacturadoAnterior > 0
+      ? ((totalFacturado - totalFacturadoAnterior) / totalFacturadoAnterior) * 100
+      : null;
 
-    return { mensual, topClientes, totalFacturado, totalCobrado, ticketPromedio, totalOrdenes: activas.length, activas };
-  }, [ordenes, anio]);
+    return {
+      mensual, topClientes, totalFacturado, totalCobrado, ticketPromedio,
+      totalOrdenes: activas.length, activas, totalFacturadoAnterior, crecimiento,
+    };
+  }, [ordenes, anio, mes]);
 
   return { ...data, isLoading };
 }
@@ -65,20 +86,15 @@ export function useReporteCartera() {
     const conDias = pendientes.map(f => ({ ...f, dias: dias(f.fecha) }));
 
     const buckets = [
-      { label: '0–30 días',  min: 0,   max: 30,  color: '#10b981' },
-      { label: '31–60 días', min: 31,  max: 60,  color: '#f59e0b' },
-      { label: '61–90 días', min: 61,  max: 90,  color: '#f97316' },
-      { label: '> 90 días',  min: 91,  max: Infinity, color: '#ef4444' },
+      { label: '0–30 días',  min: 0,  max: 30,       color: '#10b981' },
+      { label: '31–60 días', min: 31, max: 60,        color: '#f59e0b' },
+      { label: '61–90 días', min: 61, max: 90,        color: '#f97316' },
+      { label: '> 90 días',  min: 91, max: Infinity,  color: '#ef4444' },
     ].map(b => {
       const items = conDias.filter(f => f.dias >= b.min && f.dias <= b.max);
-      return {
-        ...b,
-        cantidad: items.length,
-        valor:    items.reduce((s, f) => s + f.total, 0),
-      };
+      return { ...b, cantidad: items.length, valor: items.reduce((s, f) => s + f.total, 0) };
     });
 
-    // Por cliente
     const byCliente: Record<string, { nombre: string; valor: number; facturas: number; diasMax: number }> = {};
     conDias.forEach(f => {
       if (!byCliente[f.cliente_nombre]) {
@@ -89,7 +105,7 @@ export function useReporteCartera() {
       byCliente[f.cliente_nombre].diasMax   = Math.max(byCliente[f.cliente_nombre].diasMax, f.dias);
     });
 
-    const porCliente = Object.values(byCliente).sort((a, b) => b.valor - a.valor);
+    const porCliente  = Object.values(byCliente).sort((a, b) => b.valor - a.valor);
     const totalCartera = pendientes.reduce((s, f) => s + f.total, 0);
     const enRiesgo     = conDias.filter(f => f.dias > 60).reduce((s, f) => s + f.total, 0);
 
@@ -104,7 +120,6 @@ export function useReporteNomina(anio: number) {
   const { data: nominas = [], isLoading } = useNominas(undefined, anio);
 
   const data = useMemo(() => {
-    // Mensual
     const mensual = Array.from({ length: 12 }, (_, i) => {
       const mes = nominas.filter(n => n.periodo_mes === i + 1);
       return {
@@ -115,10 +130,8 @@ export function useReporteNomina(anio: number) {
       };
     });
 
-    // Por empleado (acumulado anual)
     const byEmp: Record<string, {
-      nombre: string; devengado: number; neto: number;
-      costoEmpresa: number; meses: number;
+      nombre: string; devengado: number; neto: number; costoEmpresa: number; meses: number;
     }> = {};
 
     nominas.forEach(n => {
@@ -126,10 +139,7 @@ export function useReporteNomina(anio: number) {
       if (!byEmp[key]) {
         byEmp[key] = {
           nombre:       `${(n as any).empleado?.nombre ?? ''} ${(n as any).empleado?.apellido ?? ''}`.trim(),
-          devengado:    0,
-          neto:         0,
-          costoEmpresa: 0,
-          meses:        0,
+          devengado:    0, neto: 0, costoEmpresa: 0, meses: 0,
         };
       }
       byEmp[key].devengado    += n.total_devengado;
@@ -138,7 +148,7 @@ export function useReporteNomina(anio: number) {
       byEmp[key].meses        += 1;
     });
 
-    const porEmpleado   = Object.values(byEmp).sort((a, b) => b.devengado - a.devengado);
+    const porEmpleado    = Object.values(byEmp).sort((a, b) => b.devengado - a.devengado);
     const totalDevengado = nominas.reduce((s, n) => s + n.total_devengado, 0);
     const totalNeto      = nominas.reduce((s, n) => s + n.neto_pagar, 0);
     const totalCosto     = porEmpleado.reduce((s, e) => s + e.costoEmpresa, 0);
@@ -159,7 +169,6 @@ export function useReporteInventario() {
     const sinStock   = activos.filter(i => i.stock_actual === 0);
     const valorTotal = activos.reduce((s, i) => s + i.stock_actual * i.precio_unitario, 0);
 
-    // Por categoría
     const byCat: Record<string, { categoria: string; valor: number; items: number }> = {};
     activos.forEach(i => {
       const cat = i.categoria ?? 'Sin categoría';
@@ -169,7 +178,6 @@ export function useReporteInventario() {
     });
     const porCategoria = Object.values(byCat).sort((a, b) => b.valor - a.valor);
 
-    // Stock bajo ordenado por criticidad
     const criticos = [...stockBajo, ...sinStock].sort((a, b) => {
       const pctA = a.stock_minimo > 0 ? a.stock_actual / a.stock_minimo : 0;
       const pctB = b.stock_minimo > 0 ? b.stock_actual / b.stock_minimo : 0;
