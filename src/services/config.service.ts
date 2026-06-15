@@ -32,6 +32,25 @@ export function saveEmpresaConfig(config: EmpresaConfig): void {
   localStorage.setItem(EMPRESA_KEY, JSON.stringify(config));
 }
 
+// ── Categorías de ítem (localStorage) ────────────────────
+const CATEGORIAS_KEY = 'servitratar_categorias_item';
+
+export const CATEGORIAS_DEFAULT = [
+  'Tejo', 'Camisa', 'Eje', 'Pasador', 'Buje', 'Piñón', 'Troquel', 'Molde',
+];
+
+export function getCategoriasItem(): string[] {
+  try {
+    const stored = localStorage.getItem(CATEGORIAS_KEY);
+    if (stored) return JSON.parse(stored) as string[];
+  } catch { /* ignore */ }
+  return [...CATEGORIAS_DEFAULT];
+}
+
+export function saveCategoriasItem(categorias: string[]): void {
+  localStorage.setItem(CATEGORIAS_KEY, JSON.stringify(categorias));
+}
+
 // ── Usuarios (Supabase profiles) ──────────────────────────
 export async function getProfiles() {
   const { data, error } = await supabase

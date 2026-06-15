@@ -127,6 +127,7 @@ export async function createOrden(
       descripcion: item.descripcion.trim(),
       referencia:  item.referencia.trim() || null,
       dureza:      item.dureza.trim() || null,
+      categoria:   item.categoria.trim() || null,
       tarifa_unit: item.tarifa_unit,
       subtotal:    item.subtotal,
     }));
@@ -148,6 +149,15 @@ export async function createOrden(
   } catch (e) {
     return { data: null, error: e as Error };
   }
+}
+
+export async function getOrdenItemsConCategoria() {
+  const { data, error } = await supabase
+    .from('orden_items')
+    .select('categoria, cantidad, subtotal, ordenes(fecha, estado)')
+    .not('categoria', 'is', null)
+    .neq('categoria', '');
+  return { data: (data ?? []) as any[], error };
 }
 
 export async function updateOrdenEstado(

@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Building2, Users, Lock, ToggleLeft, ToggleRight, Info } from 'lucide-react';
+import { Building2, Users, Lock, ToggleLeft, ToggleRight, Info, Tags, Trash2, Plus, RotateCcw } from 'lucide-react';
 import { useProfiles, useUpdateProfile, useSaveEmpresaConfig, useCambiarContrasena } from '../../hooks/useConfig';
 import { useAuth } from '../../hooks/useAuth';
-import { getEmpresaConfig, type EmpresaConfig } from '../../services/config.service';
+import { getEmpresaConfig, type EmpresaConfig, getCategoriasItem, saveCategoriasItem, CATEGORIAS_DEFAULT } from '../../services/config.service';
 import type { Profile } from '../../types/supabase.types';
 import { formatDate } from '../../lib/formatters';
 import { PageHeader } from '../../components/shared/PageHeader';
@@ -38,9 +38,10 @@ type PasswordFormData = z.infer<typeof passwordSchema>;
 
 // ── Tabs ──────────────────────────────────────────────────
 const TABS = [
-  { id: 'empresa',  label: 'Empresa',  icon: Building2 },
-  { id: 'usuarios', label: 'Usuarios', icon: Users     },
-  { id: 'seguridad',label: 'Seguridad',icon: Lock      },
+  { id: 'empresa',    label: 'Empresa',    icon: Building2 },
+  { id: 'categorias', label: 'Categorías', icon: Tags      },
+  { id: 'usuarios',   label: 'Usuarios',   icon: Users     },
+  { id: 'seguridad',  label: 'Seguridad',  icon: Lock      },
 ] as const;
 type TabId = typeof TABS[number]['id'];
 
@@ -146,6 +147,109 @@ function TabEmpresa() {
               </Button>
             </div>
           </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ── Tab Categorías ────────────────────────────────────────
+function TabCategorias() {
+  const [categorias, setCategorias] = useState<string[]>(() => getCategoriasItem());
+  const [nueva, setNueva]           = useState('');
+  const [saved, setSaved]           = useState(false);
+
+  function agregar() {
+    const trimmed = nueva.trim();
+    if (!trimmed || categorias.includes(trimmed)) return;
+    setCategorias(prev => [...prev, trimmed]);
+    setNueva('');
+    setSaved(false);
+  }
+
+  function eliminar(cat: string) {
+    setCategorias(prev => prev.filter(c => c !== cat));
+    setSaved(false);
+  }
+
+  function guardar() {
+    saveCategoriasItem(categorias);
+    setSaved(true);
+  }
+
+  function restaurar() {
+    setCategorias([...CATEGORIAS_DEFAULT]);
+    setSaved(false);
+  }
+
+  return (
+    <div className="max-w-lg flex flex-col gap-5">
+      <div className="flex items-start gap-3 rounded-lg bg-blue-50 border border-blue-200 p-3 text-sm text-blue-700">
+        <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
+        <p>Las categorías se usan para clasificar los ítems en órdenes y aparecen en los reportes de ventas. Los cambios se aplican inmediatamente al crear nuevas órdenes.</p>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Categorías de ítem</CardTitle>
+            <button
+              type="button"
+              onClick={restaurar}
+              className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+              title="Restaurar valores por defecto"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              Restaurar
+            </button>
+          </div>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {/* Lista actual */}
+          <div className="flex flex-wrap gap-2 min-h-[40px]">
+            {categorias.length === 0 && (
+              <p className="text-sm text-gray-400">Sin categorías definidas.</p>
+            )}
+            {categorias.map(cat => (
+              <span
+                key={cat}
+                className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 rounded-full px-3 py-1 text-sm"
+              >
+                {cat}
+                <button
+                  type="button"
+                  onClick={() => eliminar(cat)}
+                  className="text-gray-400 hover:text-red-500 transition-colors"
+                  title={`Eliminar "${cat}"`}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+
+          {/* Agregar nueva */}
+          <div className="flex gap-2 border-t border-gray-100 pt-3">
+            <Input
+              placeholder="Nueva categoría..."
+              value={nueva}
+              onChange={e => { setNueva(e.target.value); setSaved(false); }}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); agregar(); } }}
+              className="flex-1"
+            />
+            <Button type="button" variant="outline" size="sm" onClick={agregar} disabled={!nueva.trim()}>
+              <Plus className="h-4 w-4 mr-1" /> Agregar
+            </Button>
+          </div>
+
+          {/* Guardar */}
+          <div className="flex items-center justify-between pt-1 border-t border-gray-100">
+            {saved && <p className="text-xs text-green-600">Cambios guardados correctamente.</p>}
+            {!saved && <span />}
+            <Button type="button" onClick={guardar} disabled={saved}>
+              Guardar cambios
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>
@@ -335,9 +439,10 @@ export default function ConfigPage() {
         })}
       </div>
 
-      {activeTab === 'empresa'   && <TabEmpresa />}
-      {activeTab === 'usuarios'  && <TabUsuarios />}
-      {activeTab === 'seguridad' && <TabSeguridad />}
+      {activeTab === 'empresa'    && <TabEmpresa />}
+      {activeTab === 'categorias' && <TabCategorias />}
+      {activeTab === 'usuarios'   && <TabUsuarios />}
+      {activeTab === 'seguridad'  && <TabSeguridad />}
     </div>
   );
 }

@@ -130,6 +130,7 @@ export interface OrdenItem {
   descripcion: string | null;
   referencia:  string | null;
   dureza:      string | null;
+  categoria:   string | null;
   tarifa_unit: number;
   subtotal:    number;
 }

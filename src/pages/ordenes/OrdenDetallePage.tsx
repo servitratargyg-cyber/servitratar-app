@@ -322,6 +322,7 @@ export default function OrdenDetallePage() {
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Descripción</th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Referencia</th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Dureza</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Categoría</th>
                   {orden.modo_cobro === 'UNIDAD' && (
                     <>
                       <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Tarifa</th>
@@ -338,6 +339,7 @@ export default function OrdenDetallePage() {
                     <td className="px-3 py-2.5 font-medium text-gray-800">{item.descripcion}</td>
                     <td className="px-3 py-2.5 text-gray-600">{item.referencia ?? '—'}</td>
                     <td className="px-3 py-2.5 text-gray-600">{item.dureza ?? '—'}</td>
+                    <td className="px-3 py-2.5 text-gray-600">{item.categoria ?? '—'}</td>
                     {orden.modo_cobro === 'UNIDAD' && (
                       <>
                         <td className="px-3 py-2.5 text-right tabular-nums">{formatCurrency(item.tarifa_unit)}</td>

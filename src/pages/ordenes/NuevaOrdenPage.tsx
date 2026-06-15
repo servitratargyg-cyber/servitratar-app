@@ -10,7 +10,7 @@ import { ordenFormSchema, type OrdenFormData } from '../../schemas/orden.schema'
 import { createOrden, uploadOrdenPDF, updateOrdenPdfUrl } from '../../services/ordenes.service';
 import { useAuth } from '../../hooks/useAuth';
 import { TASAS } from '../../lib/constants';
-import { getEmpresaConfig } from '../../services/config.service';
+import { getEmpresaConfig, getCategoriasItem } from '../../services/config.service';
 import { formatCurrency } from '../../lib/formatters';
 import { OrdenPDF } from '../../pdf/OrdenPDF';
 import { PageHeader } from '../../components/shared/PageHeader';
@@ -29,6 +29,7 @@ const EMPTY_ITEM = (posicion: number): OrdenFormData['items'][number] => ({
   descripcion: '',
   referencia:  '',
   dureza:      '',
+  categoria:   '',
   tarifa_unit: 0,
   subtotal:    0,
 });
@@ -38,6 +39,7 @@ export default function NuevaOrdenPage() {
   const { user }    = useAuth();
   const queryClient = useQueryClient();
   const VALOR_MINIMO_ORDEN = getEmpresaConfig().valor_minimo_orden;
+  const categorias         = getCategoriasItem();
 
   const {
     register,
@@ -204,6 +206,7 @@ export default function NuevaOrdenPage() {
                     <th className="pb-2 text-left text-xs font-medium text-gray-500 pl-2">Descripción</th>
                     <th className="pb-2 text-left text-xs font-medium text-gray-500 w-32 pl-2">Referencia</th>
                     <th className="pb-2 text-left text-xs font-medium text-gray-500 w-28 pl-2">Dureza</th>
+                    <th className="pb-2 text-left text-xs font-medium text-gray-500 w-32 pl-2">Categoría</th>
                     {esUnidad && (
                       <>
                         <th className="pb-2 text-right text-xs font-medium text-gray-500 w-32 pl-2">Tarifa Unit.</th>
@@ -244,6 +247,17 @@ export default function NuevaOrdenPage() {
                         </td>
                         <td className="py-1.5 pl-2">
                           <Input placeholder="HRC, HB..." {...register(`items.${i}.dureza`)} />
+                        </td>
+                        <td className="py-1.5 pl-2">
+                          <select
+                            {...register(`items.${i}.categoria`)}
+                            className="h-9 w-full rounded-md border border-gray-200 bg-white px-2 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-[#e8734a]"
+                          >
+                            <option value="">— Sin categoría —</option>
+                            {categorias.map(cat => (
+                              <option key={cat} value={cat}>{cat}</option>
+                            ))}
+                          </select>
                         </td>
                         {esUnidad && (
                           <>

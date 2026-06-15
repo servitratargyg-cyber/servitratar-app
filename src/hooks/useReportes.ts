@@ -1,9 +1,11 @@
 import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useOrdenes } from './useOrdenes';
 import { useFacturas } from './useFacturas';
 import { useNominas } from './useNomina';
 import { useInventario } from './useInventario';
 import { getMesNombre } from '../lib/formatters';
+import { getOrdenItemsConCategoria } from '../services/ordenes.service';
 
 // ── Ventas ────────────────────────────────────────────────
 export function useReporteVentas(anio: number, mes: number = 0) {
@@ -69,6 +71,38 @@ export function useReporteVentas(anio: number, mes: number = 0) {
   }, [ordenes, anio, mes]);
 
   return { ...data, isLoading };
+}
+
+// ── Categorías de ventas ─────────────────────────────────
+export function useCategoriasVentas(anio: number, mes: number = 0) {
+  const { data: rawItems = [], isLoading } = useQuery({
+    queryKey: ['orden_items_categoria'],
+    queryFn:  () => getOrdenItemsConCategoria().then(r => r.data),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const porCategoria = useMemo(() => {
+    const filtrado = rawItems.filter((item: any) => {
+      const orden = item.ordenes;
+      if (!orden || orden.estado === 'ANULADA') return false;
+      const d = new Date(orden.fecha);
+      if (d.getFullYear() !== anio) return false;
+      if (mes > 0 && d.getMonth() + 1 !== mes) return false;
+      return true;
+    });
+
+    const byCat: Record<string, { categoria: string; cantidad: number; valor: number }> = {};
+    filtrado.forEach((item: any) => {
+      const cat = item.categoria as string;
+      if (!byCat[cat]) byCat[cat] = { categoria: cat, cantidad: 0, valor: 0 };
+      byCat[cat].cantidad += item.cantidad ?? 1;
+      byCat[cat].valor    += item.subtotal;
+    });
+
+    return Object.values(byCat).sort((a, b) => b.valor - a.valor);
+  }, [rawItems, anio, mes]);
+
+  return { porCategoria, isLoading };
 }
 
 // ── Cartera ───────────────────────────────────────────────

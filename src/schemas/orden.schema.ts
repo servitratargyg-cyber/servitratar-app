@@ -6,6 +6,7 @@ export const ordenItemFormSchema = z.object({
   descripcion: z.string(),
   referencia:  z.string(),
   dureza:      z.string(),
+  categoria:   z.string(),
   tarifa_unit: z.number().min(0),
   subtotal:    z.number().min(0),
 });

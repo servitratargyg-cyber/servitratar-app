@@ -9,6 +9,7 @@ import {
   useReporteCartera,
   useReporteNomina,
   useReporteInventario,
+  useCategoriasVentas,
 } from '../../hooks/useReportes';
 import { formatCurrency, formatDate, getMesNombre } from '../../lib/formatters';
 import { downloadCSV } from '../../lib/csv';
@@ -80,6 +81,8 @@ function ReporteVentas() {
     mensual, topClientes, totalFacturado, totalCobrado, ticketPromedio,
     totalOrdenes, activas, crecimiento, totalFacturadoAnterior, isLoading,
   } = useReporteVentas(anio, mes);
+
+  const { porCategoria } = useCategoriasVentas(anio, mes);
 
   function exportarOrdenes() {
     downloadCSV(`ventas_${anio}${mes > 0 ? `_${getMesNombre(mes)}` : ''}`, [
@@ -217,6 +220,57 @@ function ReporteVentas() {
                 />
                 <Tooltip content={<CurrencyTooltip />} />
                 <Bar dataKey="valor" name="Facturado" fill="#e8734a" radius={[0,3,3,0]} maxBarSize={22}>
+                  <LabelList
+                    dataKey="valor"
+                    position="right"
+                    fontSize={10}
+                    fill="#6b7280"
+                    formatter={(v: number) => formatAxis(v)}
+                  />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Ventas por categoría */}
+      <Card>
+        <CardHeader><CardTitle>Ventas por categoría</CardTitle></CardHeader>
+        <CardContent>
+          {porCategoria.length === 0 ? (
+            <p className="text-sm text-gray-400 py-8 text-center">
+              Sin datos — asigna categorías a los ítems de las órdenes para ver este reporte.
+            </p>
+          ) : (
+            <ResponsiveContainer width="100%" height={Math.max(porCategoria.length * 44 + 20, 160)}>
+              <BarChart data={porCategoria} layout="vertical" margin={{ left: 0, right: 80, top: 4, bottom: 4 }}>
+                <XAxis
+                  type="number"
+                  tick={{ fontSize: 10, fill: '#6b7280' }}
+                  axisLine={false} tickLine={false}
+                  tickFormatter={formatAxis}
+                />
+                <YAxis
+                  dataKey="categoria"
+                  type="category"
+                  tick={{ fontSize: 11, fill: '#374151' }}
+                  axisLine={false} tickLine={false}
+                  width={80}
+                />
+                <Tooltip
+                  content={({ active, payload, label }: any) => {
+                    if (!active || !payload?.length) return null;
+                    const d = payload[0]?.payload;
+                    return (
+                      <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-xs">
+                        <p className="font-semibold text-gray-700 mb-1">{label}</p>
+                        <p>{d?.cantidad ?? 0} unidades — {formatCurrency(d?.valor ?? 0)}</p>
+                      </div>
+                    );
+                  }}
+                />
+                <Bar dataKey="valor" name="Valor" fill="#1a1a2e" radius={[0,3,3,0]} maxBarSize={22}>
                   <LabelList
                     dataKey="valor"
                     position="right"
