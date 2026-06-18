@@ -64,6 +64,11 @@ export interface Database {
         Insert: Omit<InventarioMovimiento, 'id' | 'created_at'>;
         Update: Partial<Omit<InventarioMovimiento, 'id' | 'created_at'>>;
       };
+      orden_notas: {
+        Row:    OrdenNota;
+        Insert: Omit<OrdenNota, 'id' | 'created_at'>;
+        Update: never;
+      };
     };
   };
 }
@@ -278,6 +283,14 @@ export interface InventarioItem {
   activo:          boolean;
   created_at:      string;
   updated_at:      string;
+}
+
+export interface OrdenNota {
+  id:           string;
+  orden_id:     string;
+  texto:        string;
+  autor_nombre: string;
+  created_at:   string;
 }
 
 export interface InventarioMovimiento {

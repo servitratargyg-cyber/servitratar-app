@@ -3,9 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { pdf } from '@react-pdf/renderer';
 import { saveAs } from 'file-saver';
-import { Download, ArrowLeft, Truck, CreditCard, Ban, RefreshCw, Mail } from 'lucide-react';
+import { Download, ArrowLeft, Truck, CreditCard, Ban, RefreshCw, Mail, MessageSquarePlus } from 'lucide-react';
 import { useOrden, useUpdateOrdenEstado } from '../../hooks/useOrdenes';
-import { usePermissions } from '../../hooks/useAuth';
+import { useAuth, usePermissions } from '../../hooks/useAuth';
+import { useOrdenNotas, useAddOrdenNota } from '../../hooks/useOrdenNotas';
 import { useCliente } from '../../hooks/useClientes';
 import { useContactos } from '../../hooks/useContactos';
 import { updateOrdenPdfUrl, uploadOrdenPDF, type OrdenConItems } from '../../services/ordenes.service';
@@ -36,10 +37,13 @@ const NEXT_STATES: Partial<Record<Orden['estado'], Orden['estado'][]>> = {
 export default function OrdenDetallePage() {
   const { id }       = useParams<{ id: string }>();
   const navigate     = useNavigate();
+  const { profile }  = useAuth();
   const { isAdmin }  = usePermissions();
 
   const { data, isLoading, error } = useOrden(id);
   const updateEstado              = useUpdateOrdenEstado();
+  const { data: notas = [] }      = useOrdenNotas(id);
+  const addNota                   = useAddOrdenNota(id ?? '');
   const { prefijo, nombre }       = getEmpresaConfig();
   const { data: cliente }         = useCliente(data?.cliente_id ?? undefined);
   const { data: contactos = [] }  = useContactos(data?.cliente_id ?? undefined);
@@ -56,6 +60,7 @@ export default function OrdenDetallePage() {
   const [fechaEntrega,    setFechaEntrega]    = useState('');
   const [nuevoEstado,     setNuevoEstado]     = useState<Orden['estado'] | ''>('');
   const [motivoAnulacion, setMotivoAnulacion] = useState('');
+  const [nuevaNota,       setNuevaNota]       = useState('');
 
   if (isLoading) return <PageLoader />;
 
@@ -144,6 +149,15 @@ export default function OrdenDetallePage() {
       id: orden.id, estado: 'PAGADA', extra: { fecha_pago: fechaPago, forma_pago: formaPago },
     });
     setShowPagoModal(false);
+  }
+
+  async function handleAddNota() {
+    if (!nuevaNota.trim()) return;
+    await addNota.mutateAsync({
+      texto:       nuevaNota.trim(),
+      autorNombre: profile?.full_name ?? 'Usuario',
+    });
+    setNuevaNota('');
   }
 
   async function handleAnular() {
@@ -350,6 +364,61 @@ export default function OrdenDetallePage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Notas / avances */}
+      <Card className="mt-5">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MessageSquarePlus className="h-4 w-4 text-gray-500" />
+            Observaciones y avances
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {/* Lista de notas */}
+          {notas.length === 0 ? (
+            <p className="text-sm text-gray-400 mb-4">Sin observaciones registradas.</p>
+          ) : (
+            <ol className="mb-4 space-y-3">
+              {notas.map(nota => (
+                <li key={nota.id} className="flex gap-3">
+                  <div className="flex-shrink-0 w-2 h-2 mt-2 rounded-full bg-[#e8734a]" />
+                  <div className="flex-1 bg-gray-50 rounded-lg px-3 py-2 text-sm">
+                    <p className="text-gray-800 whitespace-pre-wrap">{nota.texto}</p>
+                    <p className="mt-1 text-xs text-gray-400">
+                      {nota.autor_nombre} · {new Date(nota.created_at).toLocaleString('es-CO', {
+                        day: '2-digit', month: '2-digit', year: 'numeric',
+                        hour: '2-digit', minute: '2-digit',
+                      })}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          )}
+
+          {/* Formulario nueva nota */}
+          <div className="flex flex-col gap-2">
+            <Textarea
+              placeholder="Escribe una observación o avance..."
+              rows={2}
+              value={nuevaNota}
+              onChange={e => setNuevaNota(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleAddNota();
+              }}
+            />
+            <div className="flex justify-end">
+              <Button
+                size="sm"
+                onClick={handleAddNota}
+                disabled={!nuevaNota.trim() || addNota.isPending}
+              >
+                {addNota.isPending ? 'Guardando...' : 'Agregar nota'}
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
