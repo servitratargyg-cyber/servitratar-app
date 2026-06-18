@@ -159,6 +159,7 @@ export async function convertirCotizacionAOrden(
         descripcion: item.descripcion ?? '',
         referencia:  item.referencia ?? '',
         dureza:      item.dureza ?? '',
+        categoria:   '',
         tarifa_unit: item.tarifa_unit,
         subtotal:    item.subtotal,
       })),

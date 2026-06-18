@@ -11,7 +11,7 @@ import {
   useReporteInventario,
   useCategoriasVentas,
 } from '../../hooks/useReportes';
-import { formatCurrency, formatDate, getMesNombre } from '../../lib/formatters';
+import { formatCurrency, getMesNombre } from '../../lib/formatters';
 import { downloadCSV } from '../../lib/csv';
 import { PageHeader } from '../../components/shared/PageHeader';
 import { PageLoader } from '../../components/shared/LoadingSpinner';
@@ -169,7 +169,7 @@ function ReporteVentas() {
                 tick={({ x, y, payload, index }) => {
                   const isActive = mes === 0 || mes === index + 1;
                   return (
-                    <text x={x} y={y + 12} textAnchor="middle" fontSize={11}
+                    <text x={x} y={(y as number) + 12} textAnchor="middle" fontSize={11}
                       fill={isActive ? '#1a1a2e' : '#d1d5db'}
                       fontWeight={isActive && mes > 0 ? 700 : 400}>
                       {payload.value}
@@ -225,7 +225,7 @@ function ReporteVentas() {
                     position="right"
                     fontSize={10}
                     fill="#6b7280"
-                    formatter={(v: number) => formatAxis(v)}
+                    formatter={(v: any) => formatAxis(v as number)}
                   />
                 </Bar>
               </BarChart>
@@ -276,7 +276,7 @@ function ReporteVentas() {
                     position="right"
                     fontSize={10}
                     fill="#6b7280"
-                    formatter={(v: number) => formatAxis(v)}
+                    formatter={(v: any) => formatAxis(v as number)}
                   />
                 </Bar>
               </BarChart>

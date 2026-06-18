@@ -43,7 +43,7 @@ export function useUpdateOrdenEstado() {
     }: {
       id:     string;
       estado: Orden['estado'];
-      extra?: Partial<Pick<Orden, 'fecha_entrega' | 'fecha_pago' | 'forma_pago' | 'no_factura'>>;
+      extra?: Partial<Pick<Orden, 'fecha_entrega' | 'fecha_pago' | 'forma_pago' | 'no_factura' | 'motivo_anulacion'>>;
     }) => updateOrdenEstado(id, estado, extra),
 
     onSuccess: (result, vars) => {

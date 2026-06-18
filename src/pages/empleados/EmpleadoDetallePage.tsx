@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Pencil, Download, FileText } from 'lucide-react';
+import { ArrowLeft, Pencil, FileText } from 'lucide-react';
 import { pdf } from '@react-pdf/renderer';
 import { saveAs } from 'file-saver';
 import { toast } from 'sonner';
@@ -57,6 +57,7 @@ export default function EmpleadoDetallePage() {
   const totalIngresos  = empleado.salario_base + (empleado.aux_transporte ? AUX_TRANSPORTE_2026 : 0);
 
   async function descargarCertificado() {
+    if (!empleado) return;
     setPdfLoading(true);
     try {
       const blob = await pdf(<CertificadoLaboralPDF empleado={empleado} />).toBlob();
