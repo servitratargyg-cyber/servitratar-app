@@ -71,7 +71,7 @@ export async function registrarFE(
   pdfUrl?: string
 ): Promise<{ data: Factura | null; error: Error | null }> {
   try {
-    const calc     = calcularFactura(ordenes);
+    const { aplica_ret: _, ...calcDb } = calcularFactura(ordenes);
     const { prefijo } = getEmpresaConfig();
     const remision    = ordenes
       .map(o => `${prefijo}${o.no_doc}`)
@@ -85,7 +85,7 @@ export async function registrarFE(
       fecha:          formData.fecha,
       cliente_id:     primera.cliente_id,
       cliente_nombre: primera.cliente_nombre,
-      ...calc,
+      ...calcDb,
       remision,
       estado:         'PDTE PAGO',
       cuenta:         formData.cuenta.trim()      || null,
