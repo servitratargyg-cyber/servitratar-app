@@ -5,6 +5,7 @@ import {
   getFacturasCartera,
   getOrdenesParaFacturar,
   registrarFE,
+  uploadFacturaPDF,
   registrarCobro,
   anularFactura,
 } from '../services/facturas.service';
@@ -44,11 +45,13 @@ export function useOrdenesParaFacturar() {
   });
 }
 
+export { uploadFacturaPDF };
+
 export function useRegistrarFE() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ formData, ordenes }: { formData: RegistrarFEData; ordenes: Orden[] }) =>
-      registrarFE(formData, ordenes),
+    mutationFn: ({ formData, ordenes, pdfUrl }: { formData: RegistrarFEData; ordenes: Orden[]; pdfUrl?: string }) =>
+      registrarFE(formData, ordenes, pdfUrl),
     onSuccess: result => {
       if (result.error) { toast.error(`Error: ${result.error.message}`); return; }
       toast.success(`Factura ${result.data?.numero} registrada`);

@@ -26,10 +26,32 @@ export async function getOrdenesParaFacturar() {
   const { data, error } = await supabase
     .from('ordenes')
     .select('*')
-    .eq('estado', 'ENTREGADA')
     .eq('tipo_doc', 'F.E.')
+    .neq('estado', 'FE REGISTRADA')
+    .neq('estado', 'PAGADA')
+    .neq('estado', 'ANULADA')
     .order('no_doc', { ascending: false });
   return { data: (data ?? []) as Orden[], error };
+}
+
+export async function uploadFacturaPDF(blob: Blob, numero: string): Promise<string | null> {
+  try {
+    const now   = new Date();
+    const year  = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const path  = `facturas/${year}/${month}/${numero.replace(/\//g, '-')}.pdf`;
+
+    const { error } = await supabase.storage
+      .from('documentos')
+      .upload(path, blob, { contentType: 'application/pdf', upsert: true });
+
+    if (error) return null;
+
+    const { data } = supabase.storage.from('documentos').getPublicUrl(path);
+    return data.publicUrl;
+  } catch {
+    return null;
+  }
 }
 
 export function calcularFactura(ordenes: Orden[]) {
@@ -45,7 +67,8 @@ export function calcularFactura(ordenes: Orden[]) {
 
 export async function registrarFE(
   formData: RegistrarFEData,
-  ordenes: Orden[]
+  ordenes: Orden[],
+  pdfUrl?: string
 ): Promise<{ data: Factura | null; error: Error | null }> {
   try {
     const calc     = calcularFactura(ordenes);
@@ -67,6 +90,7 @@ export async function registrarFE(
       estado:         'PDTE PAGO',
       cuenta:         formData.cuenta.trim()      || null,
       observacion:    formData.observacion.trim() || null,
+      pdf_url:        pdfUrl ?? null,
     };
 
     const { data: raw, error: facturaError } = await supabase
@@ -157,7 +181,7 @@ export async function anularFactura(factura: Factura): Promise<{ error: Error | 
     const ordenesLinked = (ordenesData ?? []) as { id: string }[];
 
     for (const o of ordenesLinked) {
-      await updateOrdenEstado(o.id, 'ENTREGADA');
+      await updateOrdenEstado(o.id, 'RECIBIDA');
       await supabase
         .from('ordenes')
         .update({ no_factura: null } as never)

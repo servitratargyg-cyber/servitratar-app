@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ExternalLink, Ban, Download } from 'lucide-react';
+import { ExternalLink, Ban, Download, FileText } from 'lucide-react';
 import { useFacturas, useAnularFactura } from '../../hooks/useFacturas';
 import type { Factura } from '../../types/supabase.types';
 import { formatDate, formatCurrency } from '../../lib/formatters';
@@ -89,6 +89,24 @@ export default function FacturacionPage() {
       cell:   row => row.fecha_pago ? formatDate(row.fecha_pago) : '—',
     },
     {
+      key:    'pdf',
+      header: 'PDF',
+      cell:   row => row.pdf_url ? (
+        <a
+          href={row.pdf_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={e => e.stopPropagation()}
+          title="Ver PDF de la factura"
+          className="inline-flex items-center justify-center rounded-md p-1 text-[#e8734a] hover:bg-orange-50"
+        >
+          <FileText className="h-4 w-4" />
+        </a>
+      ) : (
+        <span className="text-gray-300 text-xs pl-1">—</span>
+      ),
+    },
+    {
       key:    'actions',
       header: '',
       cell:   row => (
@@ -162,7 +180,7 @@ export default function FacturacionPage() {
       <ConfirmDialog
         open={!!anularFactura}
         title="¿Anular factura?"
-        description={`La factura ${anularFactura?.numero} se marcará como ANULADA y la orden volverá a estado ENTREGADA.`}
+        description={`La factura ${anularFactura?.numero} se marcará como ANULADA y las órdenes vinculadas volverán a estado RECIBIDA.`}
         confirmLabel="Anular"
         variant="destructive"
         onConfirm={() => {

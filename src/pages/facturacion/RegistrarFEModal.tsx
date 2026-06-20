@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { toast } from 'sonner';
+import { Paperclip, X } from 'lucide-react';
 import { registrarFESchema, type RegistrarFEData } from '../../schemas/factura.schema';
 import { calcularFactura } from '../../services/facturas.service';
-import { useOrdenesParaFacturar, useRegistrarFE } from '../../hooks/useFacturas';
+import { useOrdenesParaFacturar, useRegistrarFE, uploadFacturaPDF } from '../../hooks/useFacturas';
 import type { Orden } from '../../types/supabase.types';
 import { TASAS, UMBRAL_RETENCIONES } from '../../lib/constants';
 import { getEmpresaConfig } from '../../services/config.service';
@@ -46,6 +48,8 @@ export function RegistrarFEModal({ open, onClose }: Props) {
 
   const ordenIds = useWatch({ control, name: 'orden_ids' });
   const [clienteFiltro, setClienteFiltro] = useState('');
+  const [pdfFile, setPdfFile]             = useState<File | null>(null);
+  const fileInputRef                      = useRef<HTMLInputElement>(null);
 
   const clientes = useMemo(() => {
     const map = new Map<string, string>();
@@ -72,6 +76,7 @@ export function RegistrarFEModal({ open, onClose }: Props) {
     if (open) {
       reset({ orden_ids: [], numero: '', fecha: today, cuenta: '', observacion: '' });
       setClienteFiltro('');
+      setPdfFile(null);
     }
   }, [open, reset, today]);
 
@@ -91,7 +96,12 @@ export function RegistrarFEModal({ open, onClose }: Props) {
   }
 
   async function onSubmit(data: RegistrarFEData) {
-    const result = await registrar.mutateAsync({ formData: data, ordenes: selectedOrdenes });
+    let pdfUrl: string | undefined;
+    if (pdfFile) {
+      pdfUrl = await uploadFacturaPDF(pdfFile, data.numero) ?? undefined;
+      if (!pdfUrl) toast.warning('No se pudo subir el PDF, pero la factura se registrará igualmente.');
+    }
+    const result = await registrar.mutateAsync({ formData: data, ordenes: selectedOrdenes, pdfUrl });
     if (!result.error) onClose();
   }
 
@@ -138,7 +148,7 @@ export function RegistrarFEModal({ open, onClose }: Props) {
 
           {todasOrdenes.length === 0 ? (
             <p className="text-sm text-gray-400 italic py-3 text-center">
-              No hay órdenes con tipo F.E. en estado ENTREGADA.
+              No hay órdenes con tipo F.E. pendientes de facturar.
             </p>
           ) : ordenesFiltradas.length === 0 ? (
             <p className="text-sm text-gray-400 italic py-3 text-center">
@@ -166,6 +176,9 @@ export function RegistrarFEModal({ open, onClose }: Props) {
                         {prefijo}{orden.no_doc}
                       </span>
                       <span className="text-gray-500 text-sm ml-2">{orden.cliente_nombre}</span>
+                      <span className="ml-2 inline-block rounded px-1.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-500">
+                        {orden.estado}
+                      </span>
                     </div>
                     <div className="text-right flex-shrink-0">
                       <p className="tabular-nums text-sm font-medium">
@@ -260,6 +273,39 @@ export function RegistrarFEModal({ open, onClose }: Props) {
           <div className="col-span-2 flex flex-col gap-1.5">
             <Label>Observaciones</Label>
             <Textarea placeholder="Notas adicionales..." rows={2} {...register('observacion')} />
+          </div>
+
+          <div className="col-span-2 flex flex-col gap-1.5">
+            <Label>PDF de la factura (opcional)</Label>
+            <input
+              type="file"
+              accept=".pdf,application/pdf"
+              ref={fileInputRef}
+              className="hidden"
+              onChange={e => setPdfFile(e.target.files?.[0] ?? null)}
+            />
+            {pdfFile ? (
+              <div className="flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
+                <Paperclip className="h-4 w-4 text-[#e8734a] flex-shrink-0" />
+                <span className="flex-1 truncate text-gray-700">{pdfFile.name}</span>
+                <button
+                  type="button"
+                  onClick={() => { setPdfFile(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
+                  className="text-gray-400 hover:text-red-500"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-2 rounded-md border border-dashed border-gray-300 px-3 py-2 text-sm text-gray-500 hover:border-[#e8734a] hover:text-[#e8734a] transition-colors"
+              >
+                <Paperclip className="h-4 w-4" />
+                Adjuntar PDF de la FE
+              </button>
+            )}
           </div>
         </div>
 

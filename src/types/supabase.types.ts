@@ -157,6 +157,7 @@ export interface Factura {
   fecha_pago:     string | null;
   cuenta:         string | null;
   observacion:    string | null;
+  pdf_url:        string | null;
   created_at:     string;
   updated_at:     string;
 }
