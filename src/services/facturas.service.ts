@@ -133,6 +133,31 @@ export async function registrarFE(
   }
 }
 
+async function findOrdenesDeFactura(factura: Factura): Promise<{ id: string }[]> {
+  const { data } = await supabase
+    .from('ordenes')
+    .select('id')
+    .eq('no_factura', factura.numero);
+
+  if (data && data.length > 0) return data as { id: string }[];
+
+  // Fallback para datos migrados: no_factura puede estar vacío pero la remisión
+  // contiene los no_doc (con o sin prefijo, p.ej. "7130" o "TT7130 · TT7131")
+  if (!factura.remision) return [];
+  const noDocs = factura.remision
+    .split(' · ')
+    .map(token => parseInt(token.replace(/\D/g, ''), 10))
+    .filter(n => !isNaN(n) && n > 0);
+
+  if (noDocs.length === 0) return [];
+  const { data: byDoc } = await supabase
+    .from('ordenes')
+    .select('id')
+    .in('no_doc', noDocs);
+
+  return (byDoc ?? []) as { id: string }[];
+}
+
 export async function registrarCobro(
   factura: Factura,
   cobroData: RegistrarCobroData
@@ -149,13 +174,7 @@ export async function registrarCobro(
 
     if (facturaError) return { error: facturaError as Error };
 
-    // Find ALL ordenes linked to this factura
-    const { data: ordenesData } = await supabase
-      .from('ordenes')
-      .select('id')
-      .eq('no_factura', factura.numero);
-
-    const ordenesLinked = (ordenesData ?? []) as { id: string }[];
+    const ordenesLinked = await findOrdenesDeFactura(factura);
 
     for (const o of ordenesLinked) {
       await updateOrdenEstado(
@@ -181,13 +200,7 @@ export async function anularFactura(factura: Factura): Promise<{ error: Error | 
 
     if (facturaError) return { error: facturaError as Error };
 
-    // Find ALL ordenes linked to this factura by no_factura
-    const { data: ordenesData } = await supabase
-      .from('ordenes')
-      .select('id')
-      .eq('no_factura', factura.numero);
-
-    const ordenesLinked = (ordenesData ?? []) as { id: string }[];
+    const ordenesLinked = await findOrdenesDeFactura(factura);
 
     for (const o of ordenesLinked) {
       await updateOrdenEstado(
