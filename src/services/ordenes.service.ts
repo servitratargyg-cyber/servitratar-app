@@ -1,6 +1,12 @@
 import { supabase } from './supabase';
-import type { Orden, OrdenItem } from '../types/supabase.types';
+import type { Orden, OrdenItem, OrdenHistorialEstado } from '../types/supabase.types';
 import type { OrdenFormData } from '../schemas/orden.schema';
+
+export const ESTADO_IDX: Record<string, number> = {
+  'RECIBIDA': 0, 'EN PROCESO': 1, 'ENTREGADA': 2, 'FE REGISTRADA': 3, 'PAGADA': 4,
+};
+
+export type EstadoExtra = Partial<Pick<Orden, 'fecha_entrega' | 'fecha_pago' | 'forma_pago' | 'motivo_anulacion'>>;
 
 export interface OrdenConItems extends Orden {
   items: OrdenItem[];
@@ -163,7 +169,8 @@ export async function getOrdenItemsConCategoria() {
 export async function updateOrdenEstado(
   id: string,
   estado: Orden['estado'],
-  extra: Partial<Pick<Orden, 'fecha_entrega' | 'fecha_pago' | 'forma_pago' | 'no_factura' | 'pdf_url' | 'motivo_anulacion'>> = {}
+  extra: Partial<Pick<Orden, 'fecha_entrega' | 'fecha_pago' | 'forma_pago' | 'no_factura' | 'pdf_url' | 'motivo_anulacion'>> = {},
+  logInfo?: { estadoAnterior: string; usuarioNombre: string; nota?: string }
 ) {
   const payload = { estado, ...extra, updated_at: new Date().toISOString() };
   const { data, error } = await supabase
@@ -172,7 +179,65 @@ export async function updateOrdenEstado(
     .eq('id', id)
     .select()
     .single();
+
+  if (!error && logInfo) {
+    supabase.from('orden_historial_estados').insert({
+      orden_id:       id,
+      estado_desde:   logInfo.estadoAnterior,
+      estado_hasta:   estado,
+      usuario_nombre: logInfo.usuarioNombre,
+      nota:           logInfo.nota ?? null,
+    } as never).then(() => {});
+  }
+
   return { data: (data ?? null) as Orden | null, error };
+}
+
+export async function getOrdenHistorial(ordenId: string) {
+  const { data, error } = await supabase
+    .from('orden_historial_estados')
+    .select('*')
+    .eq('orden_id', ordenId)
+    .order('created_at', { ascending: false });
+  return { data: (data ?? []) as OrdenHistorialEstado[], error };
+}
+
+export async function cambiarEstadoOrden(
+  orden: Orden,
+  nuevoEstado: Orden['estado'],
+  datosExtra: EstadoExtra,
+  usuarioNombre: string,
+  nota?: string,
+) {
+  const toIdx = ESTADO_IDX[nuevoEstado] ?? -1;
+
+  const extra: Partial<Pick<Orden, 'fecha_entrega' | 'fecha_pago' | 'forma_pago' | 'no_factura' | 'motivo_anulacion'>> = {
+    ...datosExtra,
+  };
+
+  // Auto-limpiar datos de estados que se están "deshaciendo"
+  if (toIdx >= 0) {
+    if (ESTADO_IDX['PAGADA'] > toIdx && !('fecha_pago' in extra)) {
+      extra.fecha_pago = null;
+      extra.forma_pago = null;
+    }
+    if (ESTADO_IDX['FE REGISTRADA'] > toIdx && !('no_factura' in extra)) {
+      extra.no_factura = null;
+    }
+    if (ESTADO_IDX['ENTREGADA'] > toIdx && !('fecha_entrega' in extra)) {
+      extra.fecha_entrega = null;
+    }
+  }
+  if (orden.estado === 'ANULADA') {
+    extra.motivo_anulacion = null;
+  }
+
+  return updateOrdenEstado(
+    orden.id,
+    nuevoEstado,
+    extra,
+    { estadoAnterior: orden.estado, usuarioNombre, nota }
+  );
 }
 
 export async function updateOrdenPdfUrl(id: string, pdf_url: string) {

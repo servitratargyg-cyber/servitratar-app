@@ -108,9 +108,12 @@ export async function registrarFE(
     // Update ALL selected ordenes to FE REGISTRADA
     const updateErrors: Error[] = [];
     for (const orden of ordenes) {
-      const { error } = await updateOrdenEstado(orden.id, 'FE REGISTRADA', {
-        no_factura: formData.numero.trim(),
-      });
+      const { error } = await updateOrdenEstado(
+        orden.id,
+        'FE REGISTRADA',
+        { no_factura: formData.numero.trim() },
+        { estadoAnterior: orden.estado, usuarioNombre: 'Sistema (FE registrada)' }
+      );
       if (error) updateErrors.push(error as Error);
     }
 
@@ -151,10 +154,12 @@ export async function registrarCobro(
     const ordenesLinked = (ordenesData ?? []) as { id: string }[];
 
     for (const o of ordenesLinked) {
-      await updateOrdenEstado(o.id, 'PAGADA', {
-        fecha_pago: cobroData.fecha_pago,
-        forma_pago: cobroData.forma_pago,
-      });
+      await updateOrdenEstado(
+        o.id,
+        'PAGADA',
+        { fecha_pago: cobroData.fecha_pago, forma_pago: cobroData.forma_pago },
+        { estadoAnterior: 'FE REGISTRADA', usuarioNombre: 'Sistema (Cobro registrado)' }
+      );
     }
 
     return { error: null };
@@ -181,11 +186,12 @@ export async function anularFactura(factura: Factura): Promise<{ error: Error | 
     const ordenesLinked = (ordenesData ?? []) as { id: string }[];
 
     for (const o of ordenesLinked) {
-      await updateOrdenEstado(o.id, 'RECIBIDA');
-      await supabase
-        .from('ordenes')
-        .update({ no_factura: null } as never)
-        .eq('id', o.id);
+      await updateOrdenEstado(
+        o.id,
+        'RECIBIDA',
+        { no_factura: null },
+        { estadoAnterior: 'FE REGISTRADA', usuarioNombre: 'Sistema (Factura anulada)' }
+      );
     }
 
     return { error: null };

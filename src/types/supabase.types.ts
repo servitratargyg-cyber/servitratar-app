@@ -69,6 +69,11 @@ export interface Database {
         Insert: Omit<OrdenNota, 'id' | 'created_at'>;
         Update: never;
       };
+      orden_historial_estados: {
+        Row:    OrdenHistorialEstado;
+        Insert: Omit<OrdenHistorialEstado, 'id' | 'created_at'>;
+        Update: never;
+      };
     };
   };
 }
@@ -292,6 +297,16 @@ export interface OrdenNota {
   texto:        string;
   autor_nombre: string;
   created_at:   string;
+}
+
+export interface OrdenHistorialEstado {
+  id:             string;
+  orden_id:       string;
+  estado_desde:   string;
+  estado_hasta:   string;
+  usuario_nombre: string;
+  nota:           string | null;
+  created_at:     string;
 }
 
 export interface InventarioMovimiento {

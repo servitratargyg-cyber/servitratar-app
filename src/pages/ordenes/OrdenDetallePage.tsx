@@ -3,15 +3,16 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { pdf } from '@react-pdf/renderer';
 import { saveAs } from 'file-saver';
-import { Download, ArrowLeft, Truck, CreditCard, Ban, RefreshCw, Mail, MessageSquarePlus } from 'lucide-react';
-import { useOrden, useUpdateOrdenEstado } from '../../hooks/useOrdenes';
+import { Download, ArrowLeft, Truck, CreditCard, Ban, RefreshCw, Mail, MessageSquarePlus, History } from 'lucide-react';
+import { useOrden, useCambiarEstadoOrden, useOrdenHistorial } from '../../hooks/useOrdenes';
 import { useAuth, usePermissions } from '../../hooks/useAuth';
 import { useOrdenNotas, useAddOrdenNota } from '../../hooks/useOrdenNotas';
 import { useCliente } from '../../hooks/useClientes';
 import { useContactos } from '../../hooks/useContactos';
-import { updateOrdenPdfUrl, uploadOrdenPDF, type OrdenConItems } from '../../services/ordenes.service';
+import { updateOrdenPdfUrl, uploadOrdenPDF, type OrdenConItems, ESTADO_IDX } from '../../services/ordenes.service';
 import type { Orden } from '../../types/supabase.types';
 import { getEmpresaConfig } from '../../services/config.service';
+import { ESTADOS_ORDEN } from '../../lib/constants';
 import { formatDate, formatCurrency } from '../../lib/formatters';
 import { abrirMailto } from '../../lib/email';
 import { OrdenPDF } from '../../pdf/OrdenPDF';
@@ -27,11 +28,10 @@ import { Textarea } from '../../components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { ContactoEmailDialog } from '../../components/shared/ContactoEmailDialog';
 
-// Valid estado transitions
+// Valid next-estado transitions for non-admin
 const NEXT_STATES: Partial<Record<Orden['estado'], Orden['estado'][]>> = {
   RECIBIDA:     ['EN PROCESO', 'ENTREGADA'],
   'EN PROCESO': ['ENTREGADA'],
-  ENTREGADA:    [],
 };
 
 export default function OrdenDetallePage() {
@@ -41,9 +41,10 @@ export default function OrdenDetallePage() {
   const { isAdmin }  = usePermissions();
 
   const { data, isLoading, error } = useOrden(id);
-  const updateEstado              = useUpdateOrdenEstado();
+  const cambiarEstado             = useCambiarEstadoOrden();
   const { data: notas = [] }      = useOrdenNotas(id);
   const addNota                   = useAddOrdenNota(id ?? '');
+  const { data: historial = [] }  = useOrdenHistorial(id);
   const { prefijo, nombre }       = getEmpresaConfig();
   const { data: cliente }         = useCliente(data?.cliente_id ?? undefined);
   const { data: contactos = [] }  = useContactos(data?.cliente_id ?? undefined);
@@ -60,6 +61,7 @@ export default function OrdenDetallePage() {
   const [fechaEntrega,    setFechaEntrega]    = useState('');
   const [nuevoEstado,     setNuevoEstado]     = useState<Orden['estado'] | ''>('');
   const [motivoAnulacion, setMotivoAnulacion] = useState('');
+  const [notaHistorial,   setNotaHistorial]   = useState('');
   const [nuevaNota,       setNuevaNota]       = useState('');
 
   if (isLoading) return <PageLoader />;
@@ -80,10 +82,32 @@ export default function OrdenDetallePage() {
 
   const noDocLabel = `${prefijo}${orden.no_doc}`;
   const total      = orden.valor + orden.iva;
-  const nextStates = NEXT_STATES[orden.estado] ?? [];
+
+  const nextStates        = NEXT_STATES[orden.estado] ?? [];
+  const estadosDisponibles: Orden['estado'][] = isAdmin
+    ? (ESTADOS_ORDEN.filter(s => s !== orden.estado) as Orden['estado'][])
+    : nextStates;
+  const canChangeEstado = estadosDisponibles.length > 0;
   const canAnular  = isAdmin && !['PAGADA', 'ANULADA'].includes(orden.estado);
   const canEntrega = ['RECIBIDA', 'EN PROCESO'].includes(orden.estado);
   const canPago    = ['ENTREGADA', 'FE REGISTRADA'].includes(orden.estado);
+
+  // Advertencias para el modal de cambio de estado (admin)
+  const estadoModalWarnings: string[] = (() => {
+    if (!nuevoEstado || !isAdmin) return [];
+    const toIdx = ESTADO_IDX[nuevoEstado] ?? -1;
+    const ws: string[] = [];
+    if (toIdx >= 0 && ESTADO_IDX['FE REGISTRADA'] > toIdx && orden.no_factura) {
+      ws.push(`La factura ${orden.no_factura} quedará en el módulo de Facturación. Anúlala desde allí si es necesario.`);
+    }
+    if (toIdx >= 0 && ESTADO_IDX['PAGADA'] > toIdx && orden.fecha_pago) {
+      ws.push('Se eliminará el registro de pago directo de la orden (fecha y forma de pago).');
+    }
+    if (orden.estado === 'ANULADA') {
+      ws.push('La orden volverá a estar activa en el flujo de trabajo.');
+    }
+    return ws;
+  })();
 
   async function handleDownloadPDF() {
     setPdfLoading(true);
@@ -128,27 +152,63 @@ export default function OrdenDetallePage() {
     });
   }
 
-  async function handleCambiarEstado() {
-    if (!nuevoEstado) return;
-    await updateEstado.mutateAsync({ id: orden.id, estado: nuevoEstado });
+  function resetEstadoModal() {
     setShowEstadoModal(false);
     setNuevoEstado('');
+    setNotaHistorial('');
+    setFechaEntrega('');
+    setFechaPago('');
+    setFormaPago('TRANSFERENCIA');
+    setMotivoAnulacion('');
+  }
+
+  async function handleCambiarEstado() {
+    if (!nuevoEstado) return;
+
+    if (isAdmin) {
+      if (nuevoEstado === 'PAGADA' && !fechaPago) { toast.error('Ingresa la fecha de pago'); return; }
+      if (nuevoEstado === 'ANULADA' && !motivoAnulacion.trim()) { toast.error('Ingresa el motivo de anulación'); return; }
+    }
+
+    const datosExtra: Record<string, string> = {};
+    if (isAdmin) {
+      if (nuevoEstado === 'ENTREGADA' && fechaEntrega) datosExtra.fecha_entrega = fechaEntrega;
+      if (nuevoEstado === 'PAGADA') { datosExtra.fecha_pago = fechaPago; datosExtra.forma_pago = formaPago; }
+      if (nuevoEstado === 'ANULADA') datosExtra.motivo_anulacion = motivoAnulacion.trim();
+    }
+
+    await cambiarEstado.mutateAsync({
+      orden,
+      nuevoEstado,
+      datosExtra,
+      usuarioNombre: profile?.full_name ?? 'Usuario',
+      nota: notaHistorial.trim() || undefined,
+    });
+    resetEstadoModal();
   }
 
   async function handleRegistrarEntrega() {
     if (!fechaEntrega) { toast.error('Ingresa la fecha de entrega'); return; }
-    await updateEstado.mutateAsync({
-      id: orden.id, estado: 'ENTREGADA', extra: { fecha_entrega: fechaEntrega },
+    await cambiarEstado.mutateAsync({
+      orden,
+      nuevoEstado: 'ENTREGADA',
+      datosExtra:  { fecha_entrega: fechaEntrega },
+      usuarioNombre: profile?.full_name ?? 'Usuario',
     });
     setShowEntregaModal(false);
+    setFechaEntrega('');
   }
 
   async function handleRegistrarPago() {
     if (!fechaPago) { toast.error('Ingresa la fecha de pago'); return; }
-    await updateEstado.mutateAsync({
-      id: orden.id, estado: 'PAGADA', extra: { fecha_pago: fechaPago, forma_pago: formaPago },
+    await cambiarEstado.mutateAsync({
+      orden,
+      nuevoEstado: 'PAGADA',
+      datosExtra:  { fecha_pago: fechaPago, forma_pago: formaPago },
+      usuarioNombre: profile?.full_name ?? 'Usuario',
     });
     setShowPagoModal(false);
+    setFechaPago('');
   }
 
   async function handleAddNota() {
@@ -162,9 +222,11 @@ export default function OrdenDetallePage() {
 
   async function handleAnular() {
     if (!motivoAnulacion.trim()) { toast.error('Ingresa el motivo de anulación'); return; }
-    await updateEstado.mutateAsync({
-      id: orden.id, estado: 'ANULADA',
-      extra: { motivo_anulacion: motivoAnulacion.trim() },
+    await cambiarEstado.mutateAsync({
+      orden,
+      nuevoEstado:  'ANULADA',
+      datosExtra:   { motivo_anulacion: motivoAnulacion.trim() },
+      usuarioNombre: profile?.full_name ?? 'Admin',
     });
     setShowAnularDialog(false);
     setMotivoAnulacion('');
@@ -202,9 +264,10 @@ export default function OrdenDetallePage() {
         </div>
         <div className="flex-1" />
 
-        {nextStates.length > 0 && (
+        {canChangeEstado && (
           <Button variant="secondary" size="sm" onClick={() => setShowEstadoModal(true)}>
-            <RefreshCw className="h-4 w-4 mr-1" /> Cambiar estado
+            <RefreshCw className="h-4 w-4 mr-1" />
+            {isAdmin ? 'Cambiar estado' : 'Avanzar estado'}
           </Button>
         )}
         {canEntrega && (
@@ -423,42 +486,140 @@ export default function OrdenDetallePage() {
         </CardContent>
       </Card>
 
+      {/* Historial de estados */}
+      <Card className="mt-5">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <History className="h-4 w-4 text-gray-500" />
+            Historial de estados
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {historial.length === 0 ? (
+            <p className="text-sm text-gray-400">Sin cambios de estado registrados.</p>
+          ) : (
+            <ol className="space-y-3">
+              {historial.map(h => (
+                <li key={h.id} className="flex gap-3 items-start">
+                  <div className="flex-shrink-0 mt-2 w-2 h-2 rounded-full bg-gray-300" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+                      <span className="text-xs text-gray-400 font-mono">{h.estado_desde}</span>
+                      <span className="text-gray-300 text-xs">→</span>
+                      <StatusBadge estado={h.estado_hasta as Orden['estado']} />
+                    </div>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {h.usuario_nombre} · {new Date(h.created_at).toLocaleString('es-CO', {
+                        day: '2-digit', month: '2-digit', year: 'numeric',
+                        hour: '2-digit', minute: '2-digit',
+                      })}
+                    </p>
+                    {h.nota && (
+                      <p className="text-xs text-gray-500 mt-1 italic">"{h.nota}"</p>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ol>
+          )}
+        </CardContent>
+      </Card>
+
       {/* ── MODALES ─────────────────────────────── */}
 
-      <Dialog open={showEstadoModal} onClose={() => setShowEstadoModal(false)} title="Cambiar estado">
+      <Dialog open={showEstadoModal} onClose={resetEstadoModal} title={isAdmin ? 'Cambiar estado (admin)' : 'Avanzar estado'}>
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <Label>Nuevo estado</Label>
-            <Select value={nuevoEstado} onChange={e => setNuevoEstado(e.target.value as Orden['estado'])}>
+            <Select value={nuevoEstado} onChange={e => { setNuevoEstado(e.target.value as Orden['estado']); setFechaEntrega(''); setFechaPago(''); setFormaPago('TRANSFERENCIA'); setMotivoAnulacion(''); }}>
               <option value="">Selecciona...</option>
-              {nextStates.map(s => <option key={s} value={s}>{s}</option>)}
+              {estadosDisponibles.map(s => <option key={s} value={s}>{s}</option>)}
             </Select>
           </div>
+
+          {/* Campos extra según estado seleccionado (solo admin) */}
+          {isAdmin && nuevoEstado === 'ENTREGADA' && (
+            <div className="flex flex-col gap-1.5">
+              <Label>Fecha de entrega <span className="text-gray-400 font-normal">(opcional)</span></Label>
+              <Input type="date" value={fechaEntrega} onChange={e => setFechaEntrega(e.target.value)} />
+            </div>
+          )}
+          {isAdmin && nuevoEstado === 'PAGADA' && (
+            <>
+              <div className="flex flex-col gap-1.5">
+                <Label>Fecha de pago *</Label>
+                <Input type="date" value={fechaPago} onChange={e => setFechaPago(e.target.value)} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>Forma de pago</Label>
+                <Select value={formaPago} onChange={e => setFormaPago(e.target.value)}>
+                  <option value="TRANSFERENCIA">Transferencia bancaria</option>
+                  <option value="EFECTIVO">Efectivo</option>
+                  <option value="CHEQUE">Cheque</option>
+                  <option value="PSE">PSE</option>
+                </Select>
+              </div>
+            </>
+          )}
+          {isAdmin && nuevoEstado === 'ANULADA' && (
+            <div className="flex flex-col gap-1.5">
+              <Label>Motivo de anulación *</Label>
+              <Textarea
+                placeholder="Describe el motivo..."
+                rows={2}
+                value={motivoAnulacion}
+                onChange={e => setMotivoAnulacion(e.target.value)}
+              />
+            </div>
+          )}
+
+          {/* Nota para historial (solo admin) */}
+          {isAdmin && nuevoEstado && (
+            <div className="flex flex-col gap-1.5">
+              <Label>Nota del cambio <span className="text-gray-400 font-normal">(opcional, queda en historial)</span></Label>
+              <Input
+                placeholder="Ej: corrección de estado por error de captura"
+                value={notaHistorial}
+                onChange={e => setNotaHistorial(e.target.value)}
+              />
+            </div>
+          )}
+
+          {/* Advertencias */}
+          {estadoModalWarnings.length > 0 && (
+            <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+              <p className="font-semibold mb-1">Ten en cuenta:</p>
+              <ul className="list-disc pl-4 space-y-0.5">
+                {estadoModalWarnings.map((w, i) => <li key={i}>{w}</li>)}
+              </ul>
+            </div>
+          )}
+
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setShowEstadoModal(false)}>Cancelar</Button>
-            <Button onClick={handleCambiarEstado} disabled={!nuevoEstado || updateEstado.isPending}>
-              {updateEstado.isPending ? 'Actualizando...' : 'Confirmar'}
+            <Button variant="outline" onClick={resetEstadoModal}>Cancelar</Button>
+            <Button onClick={handleCambiarEstado} disabled={!nuevoEstado || cambiarEstado.isPending}>
+              {cambiarEstado.isPending ? 'Actualizando...' : 'Confirmar cambio'}
             </Button>
           </div>
         </div>
       </Dialog>
 
-      <Dialog open={showEntregaModal} onClose={() => setShowEntregaModal(false)} title="Registrar fecha de entrega">
+      <Dialog open={showEntregaModal} onClose={() => { setShowEntregaModal(false); setFechaEntrega(''); }} title="Registrar fecha de entrega">
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <Label>Fecha de entrega</Label>
             <Input type="date" value={fechaEntrega} onChange={e => setFechaEntrega(e.target.value)} />
           </div>
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setShowEntregaModal(false)}>Cancelar</Button>
-            <Button onClick={handleRegistrarEntrega} disabled={updateEstado.isPending}>
-              {updateEstado.isPending ? 'Guardando...' : 'Registrar entrega'}
+            <Button variant="outline" onClick={() => { setShowEntregaModal(false); setFechaEntrega(''); }}>Cancelar</Button>
+            <Button onClick={handleRegistrarEntrega} disabled={cambiarEstado.isPending}>
+              {cambiarEstado.isPending ? 'Guardando...' : 'Registrar entrega'}
             </Button>
           </div>
         </div>
       </Dialog>
 
-      <Dialog open={showPagoModal} onClose={() => setShowPagoModal(false)} title="Registrar pago directo">
+      <Dialog open={showPagoModal} onClose={() => { setShowPagoModal(false); setFechaPago(''); }} title="Registrar pago directo">
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <Label>Fecha de pago</Label>
@@ -474,9 +635,9 @@ export default function OrdenDetallePage() {
             </Select>
           </div>
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setShowPagoModal(false)}>Cancelar</Button>
-            <Button onClick={handleRegistrarPago} disabled={updateEstado.isPending}>
-              {updateEstado.isPending ? 'Guardando...' : 'Registrar pago'}
+            <Button variant="outline" onClick={() => { setShowPagoModal(false); setFechaPago(''); }}>Cancelar</Button>
+            <Button onClick={handleRegistrarPago} disabled={cambiarEstado.isPending}>
+              {cambiarEstado.isPending ? 'Guardando...' : 'Registrar pago'}
             </Button>
           </div>
         </div>
@@ -512,16 +673,16 @@ export default function OrdenDetallePage() {
             <Button
               variant="outline"
               onClick={() => { setShowAnularDialog(false); setMotivoAnulacion(''); }}
-              disabled={updateEstado.isPending}
+              disabled={cambiarEstado.isPending}
             >
               Cancelar
             </Button>
             <Button
               variant="destructive"
               onClick={handleAnular}
-              disabled={updateEstado.isPending || !motivoAnulacion.trim()}
+              disabled={cambiarEstado.isPending || !motivoAnulacion.trim()}
             >
-              {updateEstado.isPending ? 'Anulando...' : 'Confirmar anulación'}
+              {cambiarEstado.isPending ? 'Anulando...' : 'Confirmar anulación'}
             </Button>
           </div>
         </div>
