@@ -29,7 +29,7 @@ export default function ClienteDetallePage() {
   const [cTelefono,      setCTelefono]      = useState('');
   const hoy     = new Date();
   const primerDiaMes = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-01`;
-  const ultimoDiaMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).toISOString().split('T')[0];
+  const ultimoDiaMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).toLocaleDateString('en-CA');
 
   const [fechaDesde,     setFechaDesde]     = useState(primerDiaMes);
   const [fechaHasta,     setFechaHasta]     = useState(ultimoDiaMes);

@@ -26,7 +26,7 @@ export function RegistrarFEModal({ open, onClose }: Props) {
   const registrar   = useRegistrarFE();
   const { prefijo } = getEmpresaConfig();
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toLocaleDateString('en-CA');
 
   const {
     register,

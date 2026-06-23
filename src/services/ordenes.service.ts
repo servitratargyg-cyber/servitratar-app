@@ -87,7 +87,7 @@ export async function createOrden(
   try {
     const noDoc    = await getNextNoDoc();
     const now      = new Date();
-    const today    = now.toISOString().split('T')[0];
+    const today    = now.toLocaleDateString('en-CA');
     const hora     = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00`;
     const nonEmpty = formData.items.filter(i => i.descripcion.trim() !== '');
     const cantTotal = nonEmpty.reduce((s, i) => s + (i.cantidad ?? 0), 0);

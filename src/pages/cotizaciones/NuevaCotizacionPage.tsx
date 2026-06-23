@@ -34,7 +34,7 @@ const EMPTY_ITEM = (posicion: number): CotizacionFormData['items'][number] => ({
 function getDefaultFechaValidez(): string {
   const d = new Date();
   d.setDate(d.getDate() + 30);
-  return d.toISOString().split('T')[0];
+  return d.toLocaleDateString('en-CA');
 }
 
 export default function NuevaCotizacionPage() {

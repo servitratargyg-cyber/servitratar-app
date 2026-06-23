@@ -61,7 +61,7 @@ export async function createCotizacion(
 
     const cotPayload = {
       numero,
-      fecha:          new Date().toISOString().split('T')[0],
+      fecha:          new Date().toLocaleDateString('en-CA'),
       fecha_validez:  formData.fecha_validez,
       cliente_id:     formData.cliente_id,
       cliente_nombre: formData.cliente_nombre,

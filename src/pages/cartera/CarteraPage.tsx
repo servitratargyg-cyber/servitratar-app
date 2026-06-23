@@ -53,7 +53,7 @@ interface CobroModalProps {
 
 function CobroModal({ factura, onClose }: CobroModalProps) {
   const registrar = useRegistrarCobro();
-  const today     = new Date().toISOString().split('T')[0];
+  const today     = new Date().toLocaleDateString('en-CA');
 
   const {
     register,

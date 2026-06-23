@@ -45,9 +45,9 @@ export function useDashboard() {
 
   const stats = useMemo(() => {
     const hoy        = new Date();
-    const curKey     = monthKey(hoy.toISOString().split('T')[0]);
+    const curKey     = monthKey(hoy.toLocaleDateString('en-CA'));
     const prevDate   = new Date(hoy); prevDate.setMonth(prevDate.getMonth() - 1);
-    const prevKey    = monthKey(prevDate.toISOString().split('T')[0]);
+    const prevKey    = monthKey(prevDate.toLocaleDateString('en-CA'));
 
     const activas    = ordenes.filter(o => o.estado !== 'ANULADA');
 

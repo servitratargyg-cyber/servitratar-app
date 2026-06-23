@@ -253,7 +253,7 @@ interface PagarModalProps {
 }
 
 function PagarModal({ nomina, onClose }: PagarModalProps) {
-  const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
+  const [fecha, setFecha] = useState(new Date().toLocaleDateString('en-CA'));
   const pagar = useMarcarNominaPagada();
 
   async function confirmar() {

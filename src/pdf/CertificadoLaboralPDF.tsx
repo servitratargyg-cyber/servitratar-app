@@ -65,7 +65,7 @@ interface Props {
 export function CertificadoLaboralPDF({ empleado }: Props) {
   const empresa = getEmpresaConfig();
   const hoy     = new Date();
-  const fechaDoc = formatDate(hoy.toISOString().split('T')[0]);
+  const fechaDoc = formatDate(hoy.toLocaleDateString('en-CA'));
   const vigente  = empleado.estado !== 'RETIRADO';
 
   const salarioBase = formatCurrency(empleado.salario_base);

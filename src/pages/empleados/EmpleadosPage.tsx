@@ -110,7 +110,7 @@ export default function EmpleadosPage() {
               variant="ghost"
               size="icon"
               title="Marcar como retirado"
-              onClick={() => update.mutate({ id: row.id, values: { estado: 'RETIRADO', fecha_retiro: new Date().toISOString().split('T')[0] } })}
+              onClick={() => update.mutate({ id: row.id, values: { estado: 'RETIRADO', fecha_retiro: new Date().toLocaleDateString('en-CA') } })}
             >
               <UserMinus className="h-4 w-4 text-red-400" />
             </Button>
