@@ -100,7 +100,11 @@ export async function registrarFE(
       .single();
 
     if (facturaError || !raw) {
-      return { data: null, error: (facturaError as Error) ?? new Error('Error al crear la factura') };
+      const isDuplicate = (facturaError as { code?: string })?.code === '23505';
+      const msg = isDuplicate
+        ? `Ya existe una factura con el número "${formData.numero.trim()}". Verifica el número e intenta de nuevo.`
+        : 'Error al crear la factura';
+      return { data: null, error: new Error(msg) };
     }
 
     const factura = raw as Factura;
