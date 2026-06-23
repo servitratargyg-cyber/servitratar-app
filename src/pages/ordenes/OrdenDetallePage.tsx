@@ -3,8 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { pdf } from '@react-pdf/renderer';
 import { saveAs } from 'file-saver';
-import { Download, ArrowLeft, Truck, CreditCard, Ban, RefreshCw, Mail, MessageSquarePlus, History } from 'lucide-react';
+import { Download, ArrowLeft, Truck, CreditCard, Ban, RefreshCw, Mail, MessageSquarePlus, History, FileText } from 'lucide-react';
 import { useOrden, useCambiarEstadoOrden, useOrdenHistorial } from '../../hooks/useOrdenes';
+import { useFacturaPorNumero } from '../../hooks/useFacturas';
 import { useAuth, usePermissions } from '../../hooks/useAuth';
 import { useOrdenNotas, useAddOrdenNota } from '../../hooks/useOrdenNotas';
 import { useCliente } from '../../hooks/useClientes';
@@ -48,6 +49,7 @@ export default function OrdenDetallePage() {
   const { prefijo, nombre }       = getEmpresaConfig();
   const { data: cliente }         = useCliente(data?.cliente_id ?? undefined);
   const { data: contactos = [] }  = useContactos(data?.cliente_id ?? undefined);
+  const { data: facturaFE }       = useFacturaPorNumero(data?.no_factura);
 
   const [showPagoModal,       setShowPagoModal]       = useState(false);
   const [showEntregaModal,    setShowEntregaModal]    = useState(false);
@@ -326,7 +328,27 @@ export default function OrdenDetallePage() {
               {orden.no_factura && (
                 <>
                   <dt className="text-gray-500">No. Factura</dt>
-                  <dd className="font-mono">{orden.no_factura}</dd>
+                  <dd className="font-mono flex items-center gap-2">
+                    {orden.no_factura === 'SIN' ? (
+                      <span className="text-gray-400">Sin factura</span>
+                    ) : (
+                      <>
+                        {orden.no_factura}
+                        {facturaFE?.pdf_url && (
+                          <a
+                            href={facturaFE.pdf_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Ver PDF de la factura electrónica"
+                            className="inline-flex items-center gap-1 text-[#e8734a] hover:underline text-xs font-normal"
+                          >
+                            <FileText className="h-3.5 w-3.5" />
+                            Ver FE
+                          </a>
+                        )}
+                      </>
+                    )}
+                  </dd>
                 </>
               )}
               {orden.estado === 'ANULADA' && (

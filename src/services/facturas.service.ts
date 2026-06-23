@@ -13,6 +13,15 @@ export async function getFacturas() {
   return { data: (data ?? []) as Factura[], error };
 }
 
+export async function getFacturaPorNumero(numero: string) {
+  const { data, error } = await supabase
+    .from('facturas')
+    .select('numero, pdf_url')
+    .eq('numero', numero)
+    .single();
+  return { data: data as Pick<Factura, 'numero' | 'pdf_url'> | null, error };
+}
+
 export async function getFacturasCartera() {
   const { data, error } = await supabase
     .from('facturas')

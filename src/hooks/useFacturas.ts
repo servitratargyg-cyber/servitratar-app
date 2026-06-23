@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import {
   getFacturas,
   getFacturasCartera,
+  getFacturaPorNumero,
   getOrdenesParaFacturar,
   registrarFE,
   uploadFacturaPDF,
@@ -31,6 +32,18 @@ export function useFacturasCartera() {
       if (error) throw error;
       return data;
     },
+  });
+}
+
+export function useFacturaPorNumero(numero: string | null | undefined) {
+  return useQuery({
+    queryKey: ['facturas', 'numero', numero],
+    queryFn:  async () => {
+      const { data, error } = await getFacturaPorNumero(numero!);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!numero && numero !== 'SIN',
   });
 }
 
