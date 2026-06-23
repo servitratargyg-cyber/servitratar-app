@@ -54,7 +54,10 @@ export function useRegistrarFE() {
       registrarFE(formData, ordenes, pdfUrl),
     onSuccess: result => {
       if (result.error) { toast.error(`Error: ${result.error.message}`); return; }
-      toast.success(`Factura ${result.data?.numero} registrada`);
+      const msg = result.data?.numero === 'SIN'
+        ? 'Órdenes marcadas sin factura'
+        : `Factura ${result.data?.numero} registrada`;
+      toast.success(msg);
       queryClient.invalidateQueries({ queryKey: ['facturas'] });
       queryClient.invalidateQueries({ queryKey: ['ordenes'] });
     },

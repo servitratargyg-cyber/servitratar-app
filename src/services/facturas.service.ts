@@ -71,6 +71,23 @@ export async function registrarFE(
   pdfUrl?: string
 ): Promise<{ data: Factura | null; error: Error | null }> {
   try {
+    const isSin = formData.numero.trim().toUpperCase() === 'SIN';
+
+    if (isSin) {
+      const updateErrors: Error[] = [];
+      for (const orden of ordenes) {
+        const { error } = await updateOrdenEstado(
+          orden.id,
+          'FE REGISTRADA',
+          { no_factura: 'SIN' },
+          { estadoAnterior: orden.estado, usuarioNombre: 'Sistema (Sin factura)' }
+        );
+        if (error) updateErrors.push(error as Error);
+      }
+      if (updateErrors.length > 0) return { data: null, error: updateErrors[0] };
+      return { data: { numero: 'SIN' } as Factura, error: null };
+    }
+
     const { aplica_ret: _, ...calcDb } = calcularFactura(ordenes);
     const { prefijo } = getEmpresaConfig();
     const remision    = ordenes

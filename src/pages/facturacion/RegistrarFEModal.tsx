@@ -97,7 +97,8 @@ export function RegistrarFEModal({ open, onClose }: Props) {
 
   async function onSubmit(data: RegistrarFEData) {
     let pdfUrl: string | undefined;
-    if (pdfFile) {
+    const isSin = data.numero.trim().toUpperCase() === 'SIN';
+    if (pdfFile && !isSin) {
       pdfUrl = await uploadFacturaPDF(pdfFile, data.numero) ?? undefined;
       if (!pdfUrl) toast.warning('No se pudo subir el PDF, pero la factura se registrará igualmente.');
     }
