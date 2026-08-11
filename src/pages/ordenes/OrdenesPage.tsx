@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Eye, FileText, Download } from 'lucide-react';
 import { useOrdenes } from '../../hooks/useOrdenes';
 import { usePermissions } from '../../hooks/useAuth';
-import type { OrdenesFilters } from '../../services/ordenes.service';
+import { getOrdenItemsByOrdenIds, type OrdenesFilters } from '../../services/ordenes.service';
 import type { Orden } from '../../types/supabase.types';
 import { ESTADOS_ORDEN } from '../../lib/constants';
 import { getEmpresaConfig } from '../../services/config.service';
@@ -23,6 +23,7 @@ export default function OrdenesPage() {
 
   const [filters, setFilters] = useState<OrdenesFilters>({});
   const [search,  setSearch]  = useState('');
+  const [exportandoDetalle, setExportandoDetalle] = useState(false);
 
   const { data: ordenes = [], isLoading } = useOrdenes(filters);
 
@@ -148,6 +149,31 @@ export default function OrdenesPage() {
     ]));
   }
 
+  async function exportarCSVDetallado() {
+    if (filtered.length === 0 || exportandoDetalle) return;
+    setExportandoDetalle(true);
+    try {
+      const { data: items } = await getOrdenItemsByOrdenIds(filtered.map(o => o.id));
+      const ordenesPorId = new Map(filtered.map(o => [o.id, o]));
+
+      downloadCSV('ordenes_detalle', [
+        'No. Orden', 'Fecha', 'Cliente', 'Tipo', 'Modo cobro', 'Estado', 'No. Factura',
+        'Posición', 'Descripción', 'Referencia', 'Dureza', 'Categoría',
+        'Cantidad', 'Tarifa Unit.', 'Subtotal Item',
+      ], items.map(item => {
+        const o = ordenesPorId.get(item.orden_id);
+        return [
+          o ? `${prefijo}${o.no_doc}` : '', o?.fecha ?? '', o?.cliente_nombre ?? '',
+          o?.tipo_doc ?? '', o?.modo_cobro ?? '', o?.estado ?? '', o?.no_factura ?? '',
+          item.posicion, item.descripcion ?? '', item.referencia ?? '', item.dureza ?? '',
+          item.categoria ?? '', item.cantidad ?? '', item.tarifa_unit, item.subtotal,
+        ];
+      }));
+    } finally {
+      setExportandoDetalle(false);
+    }
+  }
+
   const toolbar = (
     <>
       <Input
@@ -205,6 +231,14 @@ export default function OrdenesPage() {
           <div className="flex gap-2">
             <Button variant="outline" onClick={exportarCSV}>
               <Download className="h-4 w-4 mr-1" /> CSV
+            </Button>
+            <Button
+              variant="outline"
+              onClick={exportarCSVDetallado}
+              disabled={exportandoDetalle || filtered.length === 0}
+            >
+              <Download className="h-4 w-4 mr-1" />
+              {exportandoDetalle ? 'Exportando…' : 'CSV Detalle'}
             </Button>
             {can.crearOrdenes && (
               <Button onClick={() => navigate('/ordenes/nueva')}>+ Nueva Orden</Button>

@@ -157,6 +157,17 @@ export async function createOrden(
   }
 }
 
+export async function getOrdenItemsByOrdenIds(ordenIds: string[]) {
+  if (ordenIds.length === 0) return { data: [] as OrdenItem[], error: null };
+  const { data, error } = await supabase
+    .from('orden_items')
+    .select('*')
+    .in('orden_id', ordenIds)
+    .order('orden_id')
+    .order('posicion');
+  return { data: (data ?? []) as OrdenItem[], error };
+}
+
 export async function getOrdenItemsConCategoria() {
   const { data, error } = await supabase
     .from('orden_items')
